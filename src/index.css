@@ -1,102 +1,251 @@
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=DM+Sans:wght@500;600;700&display=swap');
-
 @layer base {
   :root {
-    --background: 210 20% 98%;
-    --foreground: 215 25% 15%;
+    --background: 22 16% 93%;
+    --foreground: 232 24% 18%;
 
     --card: 0 0% 100%;
-    --card-foreground: 215 25% 15%;
+    --card-foreground: 232 24% 18%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 215 25% 15%;
+    --popover-foreground: 232 24% 18%;
 
-    --primary: 214 84% 46%;
+    --primary: 214 79% 56%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 214 15% 93%;
-    --secondary-foreground: 215 25% 15%;
+    --secondary: 245 30% 96%;
+    --secondary-foreground: 232 20% 22%;
 
-    --muted: 214 15% 95%;
-    --muted-foreground: 215 12% 50%;
+    --muted: 238 28% 95%;
+    --muted-foreground: 230 12% 47%;
 
-    --accent: 214 60% 95%;
-    --accent-foreground: 214 84% 46%;
+    --accent: 245 38% 95%;
+    --accent-foreground: 232 28% 22%;
 
-    --destructive: 0 72% 51%;
+    --destructive: 0 74% 58%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 214 20% 90%;
-    --input: 214 20% 90%;
-    --ring: 214 84% 46%;
+    --border: 240 26% 88%;
+    --input: 240 24% 88%;
+    --ring: 214 79% 56%;
 
-    --radius: 0.625rem;
+    --radius: 1rem;
 
-    --sidebar-background: 215 25% 15%;
-    --sidebar-foreground: 214 15% 85%;
-    --sidebar-primary: 214 84% 56%;
+    --sidebar-background: 252 39% 94%;
+    --sidebar-foreground: 232 22% 28%;
+    --sidebar-primary: 214 79% 56%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 215 20% 22%;
-    --sidebar-accent-foreground: 0 0% 100%;
-    --sidebar-border: 215 20% 22%;
-    --sidebar-ring: 214 84% 56%;
+    --sidebar-accent: 0 0% 100%;
+    --sidebar-accent-foreground: 232 22% 22%;
+    --sidebar-border: 250 27% 88%;
+    --sidebar-ring: 214 79% 56%;
 
-    --success: 152 60% 42%;
+    --success: 142 63% 44%;
     --success-foreground: 0 0% 100%;
-    --warning: 38 92% 50%;
+    --warning: 38 93% 54%;
     --warning-foreground: 0 0% 100%;
   }
 
-  .dark {
-    --background: 215 25% 10%;
-    --foreground: 210 20% 95%;
-    --card: 215 25% 13%;
-    --card-foreground: 210 20% 95%;
-    --popover: 215 25% 13%;
-    --popover-foreground: 210 20% 95%;
-    --primary: 214 84% 56%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 215 20% 20%;
-    --secondary-foreground: 210 20% 95%;
-    --muted: 215 20% 18%;
-    --muted-foreground: 215 12% 60%;
-    --accent: 215 20% 20%;
-    --accent-foreground: 214 84% 56%;
-    --destructive: 0 62% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 215 20% 22%;
-    --input: 215 20% 22%;
-    --ring: 214 84% 56%;
-    --sidebar-background: 215 25% 8%;
-    --sidebar-foreground: 214 15% 85%;
-    --sidebar-primary: 214 84% 56%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 215 20% 15%;
-    --sidebar-accent-foreground: 0 0% 100%;
-    --sidebar-border: 215 20% 15%;
-    --sidebar-ring: 214 84% 56%;
-  }
-}
-
-@layer base {
   * {
     @apply border-border;
   }
-  body {
-    @apply bg-background text-foreground font-sans antialiased;
-    font-family: 'Inter', sans-serif;
+
+  html {
+    scroll-behavior: smooth;
   }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: 'Manrope', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+    background:
+      radial-gradient(circle at 14% 84%, rgba(238, 123, 255, 0.24), transparent 18%),
+      radial-gradient(circle at 86% 88%, rgba(118, 255, 225, 0.18), transparent 20%),
+      radial-gradient(circle at 58% 10%, rgba(128, 140, 255, 0.2), transparent 18%),
+      linear-gradient(135deg, #d8d3cf 0%, #ece4e3 44%, #dbe7e8 100%);
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    background:
+      radial-gradient(circle at 22% 28%, rgba(198, 193, 255, 0.36), transparent 24%),
+      radial-gradient(circle at 72% 34%, rgba(255, 235, 221, 0.52), transparent 26%);
+    filter: blur(4px);
+    z-index: -2;
+    animation: auraShift 16s ease-in-out infinite alternate;
+  }
+
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    background:
+      radial-gradient(circle at 64% 18%, rgba(255, 255, 255, 0.55), transparent 10%),
+      radial-gradient(circle at 66% 18%, rgba(255, 255, 255, 0.18), transparent 16%);
+    z-index: -1;
+    animation: orbFloat 14s ease-in-out infinite;
+  }
+
+  #root {
+    min-height: 100vh;
+  }
+
   h1, h2, h3, h4, h5, h6 {
-    font-family: 'DM Sans', sans-serif;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    letter-spacing: -0.03em;
+  }
+
+  ::selection {
+    background: rgba(74, 129, 239, 0.22);
+  }
+}
+
+@layer components {
+  .glass-card {
+    position: relative;
+    overflow: hidden;
+    border-radius: 26px;
+    border: 1px solid rgba(255, 255, 255, 0.55);
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0.52));
+    box-shadow:
+      0 24px 60px rgba(121, 111, 143, 0.08),
+      inset 0 1px 0 rgba(255, 255, 255, 0.55);
+    backdrop-filter: blur(24px);
+  }
+
+  .glass-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(130deg, rgba(255, 255, 255, 0.25), transparent 42%);
+    pointer-events: none;
+  }
+
+  .glass-card > * {
+    position: relative;
+    z-index: 1;
+  }
+
+  .glass-panel {
+    position: relative;
+    overflow: hidden;
+    border-radius: 22px;
+    border: 1px solid rgba(255, 255, 255, 0.58);
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.78), rgba(255, 255, 255, 0.55));
+    box-shadow:
+      0 16px 36px rgba(126, 116, 147, 0.06),
+      inset 0 1px 0 rgba(255, 255, 255, 0.6);
+    backdrop-filter: blur(18px);
+  }
+
+  .glass-panel::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: linear-gradient(180deg, rgba(255,255,255,0.24), rgba(255,255,255,0.06));
+    pointer-events: none;
+  }
+
+  .glass-panel > * {
+    position: relative;
+    z-index: 1;
+  }
+
+  .page-shell {
+    position: relative;
+  }
+
+  .page-shell::before {
+    content: '';
+    position: absolute;
+    inset: auto auto 4% -3%;
+    width: 14rem;
+    height: 14rem;
+    border-radius: 9999px;
+    background: radial-gradient(circle, rgba(220, 181, 255, 0.22), transparent 68%);
+    filter: blur(10px);
+    pointer-events: none;
+    animation: glowPulse 12s ease-in-out infinite;
+  }
+
+  .hero-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    border-radius: 9999px;
+    border: 1px solid rgba(255, 255, 255, 0.72);
+    background: rgba(255, 255, 255, 0.68);
+    padding: 0.32rem 0.8rem;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: hsl(var(--primary));
+    box-shadow: 0 8px 20px rgba(126, 116, 147, 0.06);
+    backdrop-filter: blur(10px);
+  }
+
+  .metric-card {
+    @apply glass-card p-5;
+  }
+
+  .section-title {
+    @apply text-2xl font-extrabold text-foreground;
+  }
+
+  .section-copy {
+    @apply mt-2 max-w-2xl text-sm leading-6 text-muted-foreground;
+  }
+
+  .soft-divider {
+    @apply h-px w-full bg-gradient-to-r from-white/0 via-white/80 to-white/0;
   }
 }
 
 @layer utilities {
-  .glass-card {
-    @apply bg-card/80 backdrop-blur-sm border border-border/50 shadow-sm;
+  @keyframes auraShift {
+    0% {
+      transform: translate3d(0, 0, 0) scale(1);
+    }
+    100% {
+      transform: translate3d(2%, -1%, 0) scale(1.04);
+    }
+  }
+
+  @keyframes orbFloat {
+    0%, 100% {
+      transform: translate3d(0, 0, 0);
+      opacity: 0.85;
+    }
+    50% {
+      transform: translate3d(-2%, 3%, 0);
+      opacity: 1;
+    }
+  }
+
+  @keyframes glowPulse {
+    0%, 100% {
+      transform: scale(1);
+      opacity: 0.7;
+    }
+    50% {
+      transform: scale(1.08);
+      opacity: 1;
+    }
+  }
+
+  .text-balance {
+    text-wrap: balance;
   }
 }

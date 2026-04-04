@@ -1,19 +1,32 @@
 import {
-  LayoutDashboard, Upload, Settings, FileSpreadsheet, LogOut, GraduationCap,
+  FileSpreadsheet,
+  GraduationCap,
+  LayoutDashboard,
+  LogOut,
+  Settings,
+  Upload,
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { NavLink } from '@/components/NavLink';
 import { useAppState } from '@/context/AppContext';
-import { useNavigate } from 'react-router-dom';
 import {
-  Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel,
-  SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarFooter, useSidebar,
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  useSidebar,
 } from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
 
 const navItems = [
   { title: 'Dashboard', url: '/dashboard', icon: LayoutDashboard },
-  { title: 'Faculty Upload', url: '/dashboard/faculty-upload', icon: Upload },
-  { title: 'Allocation', url: '/dashboard/allocation', icon: Settings },
+  { title: 'Faculty Records', url: '/dashboard/faculty-upload', icon: Upload },
+  { title: 'Duty Allocation', url: '/dashboard/allocation', icon: Settings },
   { title: 'Results', url: '/dashboard/results', icon: FileSpreadsheet },
 ];
 
@@ -29,35 +42,43 @@ export function AppSidebar() {
   };
 
   return (
-    <Sidebar collapsible="icon">
-      <SidebarContent>
-        <div className="px-4 py-5 flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-sidebar-primary flex items-center justify-center flex-shrink-0">
-            <GraduationCap className="w-5 h-5 text-sidebar-primary-foreground" />
-          </div>
-          {!collapsed && (
-            <div className="overflow-hidden">
-              <p className="text-sm font-semibold text-sidebar-primary-foreground truncate">Exam Cell</p>
-              <p className="text-xs text-sidebar-foreground/60 truncate">Duty Allocation</p>
+    <Sidebar
+      collapsible="icon"
+      variant="floating"
+      className="md:!w-[15.5rem] md:group-data-[collapsible=icon]:!w-[5rem] md:pr-2"
+    >
+      <SidebarContent className="h-full rounded-[22px] border border-white/55 bg-[linear-gradient(180deg,rgba(239,238,252,0.88),rgba(241,238,248,0.72))] text-sidebar-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.62)] backdrop-blur-xl">
+        <div className="px-4 pt-5">
+          <div className="flex items-center gap-3 rounded-2xl border border-white/68 bg-white/78 px-3 py-3 shadow-[0_10px_22px_rgba(121,111,143,0.05)]">
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary text-white shadow-[0_10px_22px_rgba(74,129,239,0.25)]">
+              <GraduationCap className="h-5 w-5" />
             </div>
-          )}
+            {!collapsed && (
+              <div className="min-w-0">
+                <p className="truncate text-sm font-bold text-foreground">Exam Cell Portal</p>
+                <p className="truncate text-xs text-muted-foreground">Administration</p>
+              </div>
+            )}
+          </div>
         </div>
 
-        <SidebarGroup>
-          <SidebarGroupLabel>Navigation</SidebarGroupLabel>
+        <SidebarGroup className="px-3 pt-4">
+          <SidebarGroupLabel className="px-3 text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+            Navigation
+          </SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarMenu>
-              {navItems.map(item => (
+            <SidebarMenu className="gap-1.5">
+              {navItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild>
+                  <SidebarMenuButton asChild className="h-auto rounded-xl p-0 hover:bg-transparent">
                     <NavLink
                       to={item.url}
                       end={item.url === '/dashboard'}
-                      className="hover:bg-sidebar-accent/50"
-                      activeClassName="bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+                      className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sidebar-foreground transition-all hover:bg-white/78 hover:shadow-[0_10px_20px_rgba(121,111,143,0.05)]"
+                      activeClassName="bg-primary text-white shadow-[0_12px_24px_rgba(74,129,239,0.22)]"
                     >
-                      <item.icon className="mr-2 h-4 w-4" />
-                      {!collapsed && <span>{item.title}</span>}
+                      <item.icon className="h-4 w-4 flex-shrink-0" />
+                      {!collapsed && <span className="truncate text-sm font-medium">{item.title}</span>}
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -67,16 +88,18 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="p-3">
-        <Button
-          variant="ghost"
-          size={collapsed ? 'icon' : 'default'}
-          className="w-full justify-start text-sidebar-foreground/70 hover:text-sidebar-primary-foreground hover:bg-sidebar-accent"
-          onClick={handleLogout}
-        >
-          <LogOut className="h-4 w-4" />
-          {!collapsed && <span className="ml-2">Logout</span>}
-        </Button>
+      <SidebarFooter className="mt-3 p-0">
+        <div className="rounded-[18px] border border-white/62 bg-white/72 px-2.5 py-2.5 backdrop-blur-md">
+          <Button
+            variant="ghost"
+            size={collapsed ? 'icon' : 'default'}
+            className="w-full justify-start rounded-xl text-sidebar-foreground hover:bg-white hover:text-foreground"
+            onClick={handleLogout}
+          >
+            <LogOut className="h-4 w-4" />
+            {!collapsed && <span className="ml-2">Sign Out</span>}
+          </Button>
+        </div>
       </SidebarFooter>
     </Sidebar>
   );

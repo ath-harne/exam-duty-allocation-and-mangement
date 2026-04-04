@@ -70,7 +70,7 @@ export default function AllocationPage() {
   const handleScheduleFile = (file?: File) => {
     if (!file) return;
     if (!examName.trim()) {
-      toast.error('Enter an exam cycle name before uploading the schedule.');
+      toast.error('Enter an examination name before uploading the schedule.');
       return;
     }
     uploadMutation.mutate({ name: examName.trim(), file });
@@ -79,31 +79,38 @@ export default function AllocationPage() {
   const selectedExam = examsQuery.data?.find((exam) => exam.exam_id === selectedExamId) ?? null;
 
   return (
-    <div className="space-y-6 max-w-6xl">
-      <div>
-        <h1 className="text-2xl font-display font-bold text-foreground">Allocation Engine</h1>
-        <p className="text-sm text-muted-foreground mt-1">Upload a schedule into MySQL, then run the Node.js allocation engine for that exam cycle.</p>
-      </div>
+    <div className="space-y-6">
+      <section className="glass-card p-6 md:p-8">
+        <span className="hero-badge">Allocation Workflow</span>
+        <h1 className="mt-4 section-title text-3xl md:text-4xl">Prepare schedules and generate duty assignments with clarity.</h1>
+        <p className="section-copy">
+          Enter the examination name, upload the schedule file, review the schedule preview, and then create the duty list for the selected examination.
+        </p>
 
-      <div className="glass-card rounded-xl p-6 space-y-4">
-        <div className="grid gap-4 md:grid-cols-[1.4fr_1fr]">
-          <div className="space-y-2">
-            <label htmlFor="examName" className="text-sm font-medium">Exam cycle name</label>
+        <div className="mt-8 grid gap-4 xl:grid-cols-[1.3fr_0.9fr]">
+          <div className="glass-panel p-5">
+            <label htmlFor="examName" className="text-sm font-semibold text-foreground">Examination Name</label>
             <Input
               id="examName"
               placeholder="Example: Winter Semester 2026"
               value={examName}
               onChange={(event) => setExamName(event.target.value)}
+              className="mt-3"
             />
+            <p className="mt-3 text-sm leading-6 text-muted-foreground">
+              Use a clear name so the exam department can identify this schedule later in reports and results.
+            </p>
           </div>
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Upload exam schedule</label>
+
+          <div className="glass-panel p-5">
+            <label className="text-sm font-semibold text-foreground">Examination Schedule File</label>
             <div
-              className="border-2 border-dashed rounded-xl p-6 text-center cursor-pointer hover:border-primary/50 transition-colors"
+              className="mt-3 rounded-[24px] border-2 border-dashed border-white/55 bg-white/26 p-8 text-center transition-all hover:bg-white/36"
               onClick={() => document.getElementById('schedule-file-input')?.click()}
             >
-              <Upload className="w-8 h-8 mx-auto text-muted-foreground mb-2" />
-              <p className="text-sm text-muted-foreground">Click to upload `.xlsx` or `.xls`</p>
+              <Upload className="mx-auto h-8 w-8 text-primary" />
+              <p className="mt-3 text-sm font-semibold text-foreground">Upload schedule file</p>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">Click to upload an Excel file in `.xlsx` or `.xls` format.</p>
               <input
                 id="schedule-file-input"
                 type="file"
@@ -114,95 +121,110 @@ export default function AllocationPage() {
             </div>
           </div>
         </div>
-        <p className="text-xs text-muted-foreground">Required schedule columns: subject_name, block_required, dept_id, exam_date, shift.</p>
-      </div>
+
+        <div className="mt-5 rounded-2xl border border-white/45 bg-white/28 px-4 py-4 text-sm leading-7 text-muted-foreground backdrop-blur-md">
+          The schedule sheet should include subject name, required blocks, department, exam date, and shift.
+        </div>
+      </section>
 
       {schedulePreview && (
         <>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="glass-card rounded-xl p-4 text-center">
-              <LayoutGrid className="w-5 h-5 mx-auto text-primary mb-1" />
-              <p className="text-2xl font-bold text-foreground">{schedulePreview.total_blocks}</p>
-              <p className="text-xs text-muted-foreground">Blocks</p>
+          <section className="grid gap-4 md:grid-cols-3">
+            <div className="metric-card">
+              <LayoutGrid className="h-5 w-5 text-primary" />
+              <p className="mt-4 text-4xl font-extrabold text-foreground">{schedulePreview.total_blocks}</p>
+              <p className="mt-2 text-sm text-muted-foreground">Total blocks required for this examination.</p>
             </div>
-            <div className="glass-card rounded-xl p-4 text-center">
-              <Calculator className="w-5 h-5 mx-auto text-primary mb-1" />
-              <p className="text-2xl font-bold text-foreground">{schedulePreview.total_rows}</p>
-              <p className="text-xs text-muted-foreground">Schedule Rows</p>
+            <div className="metric-card">
+              <Calculator className="h-5 w-5 text-primary" />
+              <p className="mt-4 text-4xl font-extrabold text-foreground">{schedulePreview.total_rows}</p>
+              <p className="mt-2 text-sm text-muted-foreground">Schedule entries available in the uploaded file.</p>
             </div>
-            <div className="glass-card rounded-xl p-4 text-center">
-              <FileSpreadsheet className="w-5 h-5 mx-auto text-primary mb-1" />
-              <p className="text-lg font-bold text-foreground">{schedulePreview.exam_name}</p>
-              <p className="text-xs text-muted-foreground">Uploaded Exam</p>
+            <div className="metric-card">
+              <FileSpreadsheet className="h-5 w-5 text-primary" />
+              <p className="mt-4 text-2xl font-extrabold text-foreground">{schedulePreview.exam_name}</p>
+              <p className="mt-2 text-sm text-muted-foreground">Current examination selected for allocation.</p>
             </div>
-          </div>
+          </section>
 
-          <div className="glass-card rounded-xl overflow-hidden">
-            <div className="p-4 border-b border-border">
-              <h2 className="font-semibold">Schedule Preview</h2>
+          <section className="glass-card overflow-hidden">
+            <div className="border-b border-white/35 px-6 py-5">
+              <h2 className="text-lg font-bold text-foreground">Schedule Preview</h2>
+              <p className="mt-2 text-sm text-muted-foreground">Review the schedule entries before generating the duty allocation.</p>
             </div>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Shift</TableHead>
-                  <TableHead>Department</TableHead>
-                  <TableHead>Subject</TableHead>
-                  <TableHead className="text-right">Blocks</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {schedulePreview.preview.map((row, index) => (
-                  <TableRow key={`${row.subject_name}-${index}`}>
-                    <TableCell>{row.exam_date}</TableCell>
-                    <TableCell>{row.shift}</TableCell>
-                    <TableCell>{row.dept_id}</TableCell>
-                    <TableCell>{row.subject_name}</TableCell>
-                    <TableCell className="text-right">{row.block_required}</TableCell>
+
+            <div className="overflow-x-auto px-2 pb-2">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Shift</TableHead>
+                    <TableHead>Department</TableHead>
+                    <TableHead>Subject</TableHead>
+                    <TableHead className="text-right">Blocks</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
+                </TableHeader>
+                <TableBody>
+                  {schedulePreview.preview.map((row, index) => (
+                    <TableRow key={`${row.subject_name}-${index}`} className="border-white/30">
+                      <TableCell>{row.exam_date}</TableCell>
+                      <TableCell>{row.shift}</TableCell>
+                      <TableCell>{row.dept_id}</TableCell>
+                      <TableCell className="font-semibold">{row.subject_name}</TableCell>
+                      <TableCell className="text-right">{row.block_required}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </section>
         </>
       )}
 
-      <div className="glass-card rounded-xl p-6 space-y-4">
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <h2 className="font-semibold">Run for Uploaded Exam</h2>
-            <p className="text-sm text-muted-foreground mt-1">Choose an uploaded exam cycle and persist its allocations.</p>
+      <section className="glass-card p-6 md:p-8">
+        <div className="flex flex-wrap items-start justify-between gap-6">
+          <div className="max-w-2xl">
+            <h2 className="text-2xl font-bold text-foreground">Generate Duty List</h2>
+            <p className="mt-3 text-sm leading-7 text-muted-foreground">
+              Choose an available examination plan and prepare the duty allocation for review and report download.
+            </p>
           </div>
-          <select
-            className="min-w-[260px] rounded-md border bg-background px-3 py-2 text-sm"
-            value={selectedExamId ?? ''}
-            onChange={(event) => setSelectedExamId(Number(event.target.value))}
-          >
-            <option value="" disabled>Select exam</option>
-            {examsQuery.data?.map((exam) => (
-              <option key={exam.exam_id} value={exam.exam_id}>
-                {exam.exam_name}
-              </option>
-            ))}
-          </select>
+
+          <div className="w-full max-w-sm">
+            <label className="text-sm font-semibold text-foreground">Select Examination</label>
+            <select
+              className="mt-3 min-h-11 w-full rounded-xl border border-white/55 bg-white/40 px-4 py-3 text-sm text-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.55)] backdrop-blur-md focus:outline-none focus:ring-2 focus:ring-ring"
+              value={selectedExamId ?? ''}
+              onChange={(event) => setSelectedExamId(Number(event.target.value))}
+            >
+              <option value="" disabled>Select examination</option>
+              {examsQuery.data?.map((exam) => (
+                <option key={exam.exam_id} value={exam.exam_id}>
+                  {exam.exam_name}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
 
         {selectedExam && (
-          <div className="text-sm text-muted-foreground">
-            {selectedExam.total_schedules} schedules, {selectedExam.total_blocks} blocks, created {new Date(selectedExam.created_at).toLocaleString()}
+          <div className="mt-5 rounded-2xl border border-white/45 bg-white/32 px-4 py-4 text-sm leading-7 text-muted-foreground backdrop-blur-md">
+            This examination includes {selectedExam.total_schedules} schedule entries and {selectedExam.total_blocks} blocks. It was created on {new Date(selectedExam.created_at).toLocaleString()}.
           </div>
         )}
 
-        <Button
-          onClick={() => selectedExamId && allocationMutation.mutate(selectedExamId)}
-          className="w-full"
-          size="lg"
-          disabled={!selectedExamId || allocationMutation.isPending}
-        >
-          <Play className="w-4 h-4 mr-2" />
-          {allocationMutation.isPending ? 'Running allocation...' : 'Generate Allocation'}
-        </Button>
-      </div>
+        <div className="mt-6">
+          <Button
+            onClick={() => selectedExamId && allocationMutation.mutate(selectedExamId)}
+            className="w-full"
+            size="lg"
+            disabled={!selectedExamId || allocationMutation.isPending}
+          >
+            <Play className="mr-2 h-4 w-4" />
+            {allocationMutation.isPending ? 'Preparing duty allocation...' : 'Generate Duty Allocation'}
+          </Button>
+        </div>
+      </section>
     </div>
   );
 }

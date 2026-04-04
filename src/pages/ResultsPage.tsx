@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Download } from 'lucide-react';
+import { Download, FileCheck2 } from 'lucide-react';
 import { buildReportUrl, getExamResult, getExams } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import {
@@ -35,188 +35,221 @@ export default function ResultsPage() {
   });
 
   if (examsQuery.isLoading) {
-    return <div className="text-sm text-muted-foreground">Loading results...</div>;
+    return <div className="glass-card p-6 text-sm text-muted-foreground">Loading results...</div>;
   }
 
   if (!examsQuery.data?.length) {
     return (
-      <div className="max-w-3xl space-y-4">
-        <h1 className="text-2xl font-display font-bold">Results</h1>
-        <div className="glass-card rounded-xl p-8 text-center text-muted-foreground">
-          No uploaded exam schedules yet. Use the allocation page to upload and run an exam cycle first.
-        </div>
+      <div className="glass-card max-w-4xl p-8 text-center">
+        <h1 className="text-2xl font-extrabold text-foreground">No Results Available Yet</h1>
+        <p className="mx-auto mt-3 max-w-2xl text-sm leading-7 text-muted-foreground">
+          Add an examination schedule and generate the duty allocation first. The full result view and report downloads will appear here after allocation is completed.
+        </p>
       </div>
     );
   }
 
   if (resultQuery.isLoading || !resultQuery.data) {
-    return <div className="text-sm text-muted-foreground">Loading exam result...</div>;
+    return <div className="glass-card p-6 text-sm text-muted-foreground">Loading examination result...</div>;
   }
 
   const { exam, summary, sessions, unallocated } = resultQuery.data;
 
   return (
-    <div className="space-y-6 max-w-6xl">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-display font-bold text-foreground">Allocation Results</h1>
-          <p className="text-sm text-muted-foreground mt-1">{exam.exam_name}</p>
+    <div className="space-y-6">
+      <section className="glass-card p-6 md:p-8">
+        <div className="flex flex-wrap items-start justify-between gap-6">
+          <div className="max-w-3xl">
+            <span className="hero-badge">
+              <FileCheck2 className="h-3.5 w-3.5" />
+              Final Review
+            </span>
+            <h1 className="mt-4 section-title text-3xl md:text-4xl">Duty allocation results for {exam.exam_name}</h1>
+            <p className="section-copy">
+              Review the generated duties carefully, switch between examination plans when needed, and download clean reports for departmental circulation.
+            </p>
+          </div>
+
+          <div className="w-full max-w-sm space-y-3">
+            <select
+              className="min-h-11 w-full rounded-xl border border-white/55 bg-white/40 px-4 py-3 text-sm text-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.55)] backdrop-blur-md focus:outline-none focus:ring-2 focus:ring-ring"
+              value={exam.exam_id}
+              onChange={(event) => setSearchParams({ examId: event.target.value })}
+            >
+              {examsQuery.data.map((item) => (
+                <option key={item.exam_id} value={item.exam_id}>
+                  {item.exam_name}
+                </option>
+              ))}
+            </select>
+
+            <Button asChild variant="outline" className="w-full">
+              <a href={buildReportUrl(exam.exam_id, 'excel')}>
+                <Download className="mr-2 h-4 w-4" />
+                Download Excel Report
+              </a>
+            </Button>
+          </div>
         </div>
-        <div className="flex items-center gap-3">
-          <select
-            className="min-w-[260px] rounded-md border bg-background px-3 py-2 text-sm"
-            value={exam.exam_id}
-            onChange={(event) => setSearchParams({ examId: event.target.value })}
-          >
-            {examsQuery.data.map((item) => (
-              <option key={item.exam_id} value={item.exam_id}>
-                {item.exam_name}
-              </option>
-            ))}
-          </select>
-          <Button asChild variant="outline">
-            <a href={buildReportUrl(exam.exam_id, 'excel')}>
-              <Download className="w-4 h-4 mr-2" /> Excel
-            </a>
-          </Button>
+      </section>
+
+      <section className="grid grid-cols-2 gap-4 xl:grid-cols-5">
+        <div className="metric-card"><p className="text-sm font-semibold text-muted-foreground">Sessions</p><p className="mt-4 text-4xl font-extrabold text-foreground">{summary.total_sessions}</p></div>
+        <div className="metric-card"><p className="text-sm font-semibold text-muted-foreground">Junior Supervisors</p><p className="mt-4 text-4xl font-extrabold text-foreground">{summary.total_junior_supervisors}</p></div>
+        <div className="metric-card"><p className="text-sm font-semibold text-muted-foreground">Senior Supervisors</p><p className="mt-4 text-4xl font-extrabold text-foreground">{summary.total_senior_supervisors}</p></div>
+        <div className="metric-card"><p className="text-sm font-semibold text-muted-foreground">Squad Members</p><p className="mt-4 text-4xl font-extrabold text-foreground">{summary.total_squad_members}</p></div>
+        <div className="metric-card"><p className="text-sm font-semibold text-muted-foreground">Unassigned Faculty</p><p className="mt-4 text-4xl font-extrabold text-foreground">{summary.total_unallocated}</p></div>
+      </section>
+
+      <section className="glass-card p-5">
+        <div className="flex flex-wrap gap-3">
+          <Button asChild variant="outline"><a href={buildReportUrl(exam.exam_id, 'junior-supervisors.pdf')}>Junior Supervisor PDF</a></Button>
+          <Button asChild variant="outline"><a href={buildReportUrl(exam.exam_id, 'squads.pdf')}>Squad Duty PDF</a></Button>
+          <Button asChild variant="outline"><a href={buildReportUrl(exam.exam_id, 'senior-supervisors.pdf')}>Senior Supervisor PDF</a></Button>
+          <Button asChild variant="outline"><a href={buildReportUrl(exam.exam_id, 'unallocated.pdf')}>Unassigned Faculty PDF</a></Button>
         </div>
-      </div>
+      </section>
 
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-        <div className="glass-card rounded-xl p-4"><p className="text-xs text-muted-foreground">Sessions</p><p className="text-2xl font-bold">{summary.total_sessions}</p></div>
-        <div className="glass-card rounded-xl p-4"><p className="text-xs text-muted-foreground">Jr SV</p><p className="text-2xl font-bold">{summary.total_junior_supervisors}</p></div>
-        <div className="glass-card rounded-xl p-4"><p className="text-xs text-muted-foreground">Sr SV</p><p className="text-2xl font-bold">{summary.total_senior_supervisors}</p></div>
-        <div className="glass-card rounded-xl p-4"><p className="text-xs text-muted-foreground">Squad Members</p><p className="text-2xl font-bold">{summary.total_squad_members}</p></div>
-        <div className="glass-card rounded-xl p-4"><p className="text-xs text-muted-foreground">Unallocated</p><p className="text-2xl font-bold">{summary.total_unallocated}</p></div>
-      </div>
-
-      <div className="flex flex-wrap gap-3">
-        <Button asChild variant="outline"><a href={buildReportUrl(exam.exam_id, 'junior-supervisors.pdf')}>Junior SV PDF</a></Button>
-        <Button asChild variant="outline"><a href={buildReportUrl(exam.exam_id, 'squads.pdf')}>Squad PDF</a></Button>
-        <Button asChild variant="outline"><a href={buildReportUrl(exam.exam_id, 'senior-supervisors.pdf')}>Senior SV PDF</a></Button>
-        <Button asChild variant="outline"><a href={buildReportUrl(exam.exam_id, 'unallocated.pdf')}>Unallocated PDF</a></Button>
-      </div>
-
-      <Tabs defaultValue="jr">
-        <TabsList className="grid grid-cols-4 w-full max-w-2xl">
-          <TabsTrigger value="jr">Jr SV</TabsTrigger>
-          <TabsTrigger value="sr">Sr SV</TabsTrigger>
-          <TabsTrigger value="squad">Squads</TabsTrigger>
-          <TabsTrigger value="unallocated">Unallocated</TabsTrigger>
+      <Tabs defaultValue="jr" className="space-y-4">
+        <TabsList className="grid h-auto w-full max-w-4xl grid-cols-2 gap-2 rounded-[24px] border border-white/45 bg-white/35 p-2 backdrop-blur-md md:grid-cols-4">
+          <TabsTrigger value="jr" className="rounded-2xl">Junior Supervisors</TabsTrigger>
+          <TabsTrigger value="sr" className="rounded-2xl">Senior Supervisors</TabsTrigger>
+          <TabsTrigger value="squad" className="rounded-2xl">Squad Teams</TabsTrigger>
+          <TabsTrigger value="unallocated" className="rounded-2xl">Unassigned Faculty</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="jr" className="space-y-4 mt-4">
+        <TabsContent value="jr" className="space-y-4">
           {sessions.map((session) => (
-            <div key={session.schedule_id} className="glass-card rounded-xl overflow-hidden">
-              <div className="p-3 border-b border-border bg-muted/30">
-                <span className="font-semibold">{session.exam_date} {session.shift}</span>
-                <span className="text-muted-foreground ml-2 text-sm">{session.subject_name} • {session.dept_id} • {session.block_required} blocks</span>
+            <div key={session.schedule_id} className="glass-card overflow-hidden">
+              <div className="border-b border-white/35 bg-white/18 px-5 py-4">
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                  <span className="text-sm font-bold text-foreground">{session.exam_date} | {session.shift}</span>
+                  <span className="text-sm text-muted-foreground">{session.subject_name}</span>
+                  <span className="text-sm text-muted-foreground">{session.dept_id}</span>
+                  <span className="text-sm text-muted-foreground">{session.block_required} blocks</span>
+                </div>
               </div>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Block</TableHead>
-                    <TableHead>Faculty</TableHead>
-                    <TableHead>Employee Code</TableHead>
-                    <TableHead>Department</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {session.junior_supervisors.map((item) => (
-                    <TableRow key={`${session.schedule_id}-${item.block_number}`}>
-                      <TableCell className="font-bold">{item.block_number}</TableCell>
-                      <TableCell>{item.faculty_name}</TableCell>
-                      <TableCell>{item.employee_code}</TableCell>
-                      <TableCell>{item.dept_id}</TableCell>
+              <div className="overflow-x-auto px-2 pb-2">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Block</TableHead>
+                      <TableHead>Faculty</TableHead>
+                      <TableHead>Employee Code</TableHead>
+                      <TableHead>Department</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {session.junior_supervisors.map((item) => (
+                      <TableRow key={`${session.schedule_id}-${item.block_number}`} className="border-white/30">
+                        <TableCell className="font-bold">{item.block_number}</TableCell>
+                        <TableCell className="font-semibold">{item.faculty_name}</TableCell>
+                        <TableCell>{item.employee_code}</TableCell>
+                        <TableCell>{item.dept_id}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             </div>
           ))}
         </TabsContent>
 
-        <TabsContent value="sr" className="space-y-4 mt-4">
+        <TabsContent value="sr" className="space-y-4">
           {sessions.map((session) => (
-            <div key={session.schedule_id} className="glass-card rounded-xl overflow-hidden">
-              <div className="p-3 border-b border-border bg-muted/30">
-                <span className="font-semibold">{session.exam_date} {session.shift}</span>
-                <span className="text-muted-foreground ml-2 text-sm">{session.subject_name}</span>
+            <div key={session.schedule_id} className="glass-card overflow-hidden">
+              <div className="border-b border-white/35 bg-white/18 px-5 py-4">
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                  <span className="text-sm font-bold text-foreground">{session.exam_date} | {session.shift}</span>
+                  <span className="text-sm text-muted-foreground">{session.subject_name}</span>
+                </div>
               </div>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Faculty</TableHead>
-                    <TableHead>Employee Code</TableHead>
-                    <TableHead>Designation</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {session.senior_supervisors.map((item) => (
-                    <TableRow key={`${session.schedule_id}-${item.faculty_id}`}>
-                      <TableCell>{item.faculty_name}</TableCell>
-                      <TableCell>{item.employee_code}</TableCell>
-                      <TableCell>{item.designation}</TableCell>
+              <div className="overflow-x-auto px-2 pb-2">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Faculty</TableHead>
+                      <TableHead>Employee Code</TableHead>
+                      <TableHead>Designation</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {session.senior_supervisors.map((item) => (
+                      <TableRow key={`${session.schedule_id}-${item.faculty_id}`} className="border-white/30">
+                        <TableCell className="font-semibold">{item.faculty_name}</TableCell>
+                        <TableCell>{item.employee_code}</TableCell>
+                        <TableCell>{item.designation}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             </div>
           ))}
         </TabsContent>
 
-        <TabsContent value="squad" className="space-y-4 mt-4">
+        <TabsContent value="squad" className="space-y-4">
           {sessions.map((session) => (
-            <div key={session.schedule_id} className="glass-card rounded-xl overflow-hidden">
-              <div className="p-3 border-b border-border bg-muted/30">
-                <span className="font-semibold">{session.exam_date} {session.shift}</span>
-                <span className="text-muted-foreground ml-2 text-sm">{session.subject_name}</span>
+            <div key={session.schedule_id} className="glass-card overflow-hidden">
+              <div className="border-b border-white/35 bg-white/18 px-5 py-4">
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                  <span className="text-sm font-bold text-foreground">{session.exam_date} | {session.shift}</span>
+                  <span className="text-sm text-muted-foreground">{session.subject_name}</span>
+                </div>
               </div>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Squad</TableHead>
-                    <TableHead>Member 1</TableHead>
-                    <TableHead>Member 2</TableHead>
-                    <TableHead>Member 3</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {session.squads.map((squad) => (
-                    <TableRow key={`${session.schedule_id}-${squad.squad_number}`}>
-                      <TableCell className="font-bold">{squad.squad_number}</TableCell>
-                      {[0, 1, 2].map((index) => (
-                        <TableCell key={index}>{squad.members[index]?.faculty_name ?? '-'}</TableCell>
-                      ))}
+              <div className="overflow-x-auto px-2 pb-2">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Squad</TableHead>
+                      <TableHead>Member 1</TableHead>
+                      <TableHead>Member 2</TableHead>
+                      <TableHead>Member 3</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {session.squads.map((squad) => (
+                      <TableRow key={`${session.schedule_id}-${squad.squad_number}`} className="border-white/30">
+                        <TableCell className="font-bold">{squad.squad_number}</TableCell>
+                        {[0, 1, 2].map((index) => (
+                          <TableCell key={index}>{squad.members[index]?.faculty_name ?? '-'}</TableCell>
+                        ))}
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             </div>
           ))}
         </TabsContent>
 
-        <TabsContent value="unallocated" className="glass-card rounded-xl overflow-hidden mt-4">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Faculty</TableHead>
-                <TableHead>Employee Code</TableHead>
-                <TableHead>Department</TableHead>
-                <TableHead>Designation</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {unallocated.map((faculty) => (
-                <TableRow key={faculty.faculty_id}>
-                  <TableCell>{faculty.faculty_name}</TableCell>
-                  <TableCell>{faculty.employee_code}</TableCell>
-                  <TableCell>{faculty.dept_id}</TableCell>
-                  <TableCell>{faculty.designation}</TableCell>
+        <TabsContent value="unallocated" className="glass-card overflow-hidden">
+          <div className="border-b border-white/35 px-6 py-5">
+            <h2 className="text-lg font-bold text-foreground">Unassigned Faculty</h2>
+            <p className="mt-2 text-sm text-muted-foreground">Faculty members who have not been assigned for the selected examination.</p>
+          </div>
+          <div className="overflow-x-auto px-2 pb-2">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Faculty</TableHead>
+                  <TableHead>Employee Code</TableHead>
+                  <TableHead>Department</TableHead>
+                  <TableHead>Designation</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {unallocated.map((faculty) => (
+                  <TableRow key={faculty.faculty_id} className="border-white/30">
+                    <TableCell className="font-semibold">{faculty.faculty_name}</TableCell>
+                    <TableCell>{faculty.employee_code}</TableCell>
+                    <TableCell>{faculty.dept_id}</TableCell>
+                    <TableCell>{faculty.designation}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
         </TabsContent>
       </Tabs>
     </div>

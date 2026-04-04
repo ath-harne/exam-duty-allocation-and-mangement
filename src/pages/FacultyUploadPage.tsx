@@ -42,91 +42,123 @@ export default function FacultyUploadPage() {
   };
 
   return (
-    <div className="space-y-6 max-w-6xl">
-      <div>
-        <h1 className="text-2xl font-display font-bold text-foreground">Faculty Upload</h1>
-        <p className="text-sm text-muted-foreground mt-1">Upload the faculty master Excel to store faculty, leave status, and computed experience in MySQL.</p>
-      </div>
+    <div className="space-y-6">
+      <section className="glass-card p-6 md:p-8">
+        <span className="hero-badge">Faculty Management</span>
+        <h1 className="mt-4 section-title text-3xl md:text-4xl">Keep faculty records accurate before every exam duty cycle.</h1>
+        <p className="section-copy">
+          Upload the latest faculty sheet so the examination department can work with current department, qualification, and leave information while preparing duty assignments.
+        </p>
 
-      <div
-        className={`glass-card rounded-xl p-10 border-2 border-dashed text-center transition-colors cursor-pointer ${dragActive ? 'border-primary bg-primary/5' : 'border-border'}`}
-        onDragOver={(event) => {
-          event.preventDefault();
-          setDragActive(true);
-        }}
-        onDragLeave={() => setDragActive(false)}
-        onDrop={(event) => {
-          event.preventDefault();
-          setDragActive(false);
-          handleFile(event.dataTransfer.files[0]);
-        }}
-        onClick={() => document.getElementById('faculty-file-input')?.click()}
-      >
-        <div className="mx-auto w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center mb-4">
-          <Upload className="w-7 h-7 text-primary" />
+        <div
+          className={`mt-8 rounded-[28px] border-2 border-dashed p-8 text-center transition-all md:p-12 ${dragActive ? 'border-primary bg-white/55 shadow-[0_22px_50px_rgba(44,101,133,0.14)]' : 'border-white/60 bg-white/32'}`}
+          onDragOver={(event) => {
+            event.preventDefault();
+            setDragActive(true);
+          }}
+          onDragLeave={() => setDragActive(false)}
+          onDrop={(event) => {
+            event.preventDefault();
+            setDragActive(false);
+            handleFile(event.dataTransfer.files[0]);
+          }}
+          onClick={() => document.getElementById('faculty-file-input')?.click()}
+        >
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-[22px] bg-primary/12 text-primary">
+            <Upload className="h-8 w-8" />
+          </div>
+          <h2 className="mt-5 text-xl font-bold text-foreground">Upload faculty list</h2>
+          <p className="mx-auto mt-3 max-w-2xl text-sm leading-7 text-muted-foreground">
+            Drop the Excel file here or click to browse. The sheet should include faculty name, department, designation, qualification, joining date, and leave status.
+          </p>
+          <input
+            id="faculty-file-input"
+            type="file"
+            accept=".xlsx,.xls"
+            className="hidden"
+            onChange={(event) => handleFile(event.target.files?.[0])}
+          />
         </div>
-        <p className="font-medium text-foreground">Drop the faculty Excel here or click to browse</p>
-        <p className="text-sm text-muted-foreground mt-1">Expected fields: name, gender, dept, teaching_type, qualification, designation, date_of_joining, is_on_leave</p>
-        <input
-          id="faculty-file-input"
-          type="file"
-          accept=".xlsx,.xls"
-          className="hidden"
-          onChange={(event) => handleFile(event.target.files?.[0])}
-        />
-      </div>
 
-      {mutation.isPending && (
-        <div className="text-sm text-muted-foreground">Uploading faculty data to the backend...</div>
-      )}
+        {mutation.isPending && (
+          <div className="mt-4 rounded-2xl border border-white/50 bg-white/36 px-4 py-3 text-sm text-muted-foreground backdrop-blur-md">
+            Updating faculty records...
+          </div>
+        )}
+      </section>
 
       {uploadResult && (
-        <div className="glass-card rounded-xl overflow-hidden">
-          <div className="p-4 border-b flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <FileSpreadsheet className="w-5 h-5 text-primary" />
-              <span className="font-semibold">{uploadResult.total_records} faculty rows processed</span>
+        <>
+          <section className="grid gap-4 md:grid-cols-3">
+            <div className="metric-card">
+              <p className="text-sm font-semibold text-muted-foreground">Records Updated</p>
+              <p className="mt-4 text-4xl font-extrabold text-foreground">{uploadResult.total_records}</p>
             </div>
-            <Button variant="outline" size="sm" onClick={() => setUploadResult(null)}>
-              <X className="w-4 h-4 mr-1" /> Clear Preview
-            </Button>
-          </div>
+            <div className="metric-card">
+              <p className="text-sm font-semibold text-muted-foreground">File Type</p>
+              <p className="mt-4 text-2xl font-extrabold text-foreground">Faculty Master</p>
+            </div>
+            <div className="metric-card">
+              <p className="text-sm font-semibold text-muted-foreground">Status</p>
+              <p className="mt-4 text-2xl font-extrabold text-foreground">Ready for Allocation</p>
+            </div>
+          </section>
 
-          <div className="overflow-x-auto max-h-[520px] overflow-y-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Code</TableHead>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Gender</TableHead>
-                  <TableHead>Department</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Qualification</TableHead>
-                  <TableHead>Experience</TableHead>
-                  <TableHead>Leave</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {uploadResult.preview.map((faculty) => (
-                  <TableRow key={faculty.employee_code}>
-                    <TableCell className="font-mono text-xs">{faculty.employee_code}</TableCell>
-                    <TableCell className="font-medium">{faculty.name}</TableCell>
-                    <TableCell>{faculty.gender}</TableCell>
-                    <TableCell>{faculty.dept_id}</TableCell>
-                    <TableCell>
-                      <Badge variant={faculty.teaching_type === 'T' ? 'default' : 'secondary'}>
-                        {faculty.teaching_type === 'T' ? 'Teaching' : 'Non-Teaching'}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>{faculty.qualification}</TableCell>
-                    <TableCell>{faculty.experience_years} yrs</TableCell>
-                    <TableCell>{faculty.is_on_leave ? <X className="w-4 h-4 text-destructive" /> : <Check className="w-4 h-4 text-success" />}</TableCell>
+          <section className="glass-card overflow-hidden">
+            <div className="flex flex-wrap items-center justify-between gap-4 border-b border-white/35 px-6 py-5">
+              <div className="flex items-center gap-3">
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/12 text-primary">
+                  <FileSpreadsheet className="h-5 w-5" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold text-foreground">Faculty Preview</h2>
+                  <p className="text-sm text-muted-foreground">Review a sample of the updated faculty records.</p>
+                </div>
+              </div>
+              <Button variant="outline" size="sm" onClick={() => setUploadResult(null)}>
+                <X className="mr-1 h-4 w-4" />
+                Close Preview
+              </Button>
+            </div>
+
+            <div className="overflow-x-auto overflow-y-auto px-2 pb-2 max-h-[560px]">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Code</TableHead>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Gender</TableHead>
+                    <TableHead>Department</TableHead>
+                    <TableHead>Role Type</TableHead>
+                    <TableHead>Qualification</TableHead>
+                    <TableHead>Experience</TableHead>
+                    <TableHead>Leave Status</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        </div>
+                </TableHeader>
+                <TableBody>
+                  {uploadResult.preview.map((faculty) => (
+                    <TableRow key={faculty.employee_code} className="border-white/30">
+                      <TableCell className="font-mono text-xs">{faculty.employee_code}</TableCell>
+                      <TableCell className="font-semibold">{faculty.name}</TableCell>
+                      <TableCell>{faculty.gender}</TableCell>
+                      <TableCell>{faculty.dept_id}</TableCell>
+                      <TableCell>
+                        <Badge variant={faculty.teaching_type === 'T' ? 'default' : 'secondary'}>
+                          {faculty.teaching_type === 'T' ? 'Teaching' : 'Non-Teaching'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>{faculty.qualification}</TableCell>
+                      <TableCell>{faculty.experience_years} yrs</TableCell>
+                      <TableCell>
+                        {faculty.is_on_leave ? <X className="h-4 w-4 text-destructive" /> : <Check className="h-4 w-4 text-success" />}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </section>
+        </>
       )}
     </div>
   );
