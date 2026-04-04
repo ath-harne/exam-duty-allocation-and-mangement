@@ -1,64 +1,135 @@
-export interface Faculty {
-  faculty_id: string;
+export interface FacultyPreview {
+  employee_code: string;
   name: string;
-  gender: string;
-  department: string;
-  teaching_type: 'Teaching' | 'Non-Teaching';
-  qualification: 'Graduate' | 'Postgraduate' | 'PhD';
+  gender: 'M' | 'F' | 'O';
+  dept_id: string;
+  teaching_type: 'T' | 'NT';
   designation: string;
+  qualification: 'Graduate' | 'Postgraduate' | 'PhD';
+  date_of_joining: string | null;
   experience_years: number;
-  active_status: boolean;
+  is_on_leave: boolean;
 }
 
-export interface FairnessCounter {
-  faculty_id: string;
-  jr_sv_count: number;
-  sr_sv_count: number;
-  squad_count: number;
-  total_allocations: number;
-  last_allocated_term: string;
+export interface FacultyUploadResponse {
+  message: string;
+  total_records: number;
+  preview: FacultyPreview[];
 }
 
-export interface ExamTerm {
-  term_id: string;
-  term_name: string;
-  total_students: number;
+export interface SchedulePreview {
+  subject_name: string;
+  block_required: number;
+  dept_id: string;
+  exam_date: string;
+  shift: 'M' | 'E';
+}
+
+export interface ScheduleUploadResponse {
+  message: string;
+  exam_id: number;
+  exam_name: string;
+  total_rows: number;
   total_blocks: number;
+  preview: SchedulePreview[];
+}
+
+export interface ExamListItem {
+  exam_id: number;
+  exam_name: string;
+  total_blocks: number;
+  total_schedules: number;
+  total_allocations?: number;
   created_at: string;
 }
 
-export interface Allocation {
-  allocation_id: string;
-  term_id: string;
-  faculty_id: string;
-  role: 'Jr_SV' | 'Sr_SV' | 'Squad';
-  block_number?: number;
-  squad_number?: number;
+export interface DashboardResponse {
+  faculty: {
+    total_faculties: number;
+    available_faculties: number;
+    faculty_on_leave: number;
+  };
+  schedule: {
+    total_schedules: number;
+    total_blocks: number;
+  };
+  allocations: {
+    total_allocations: number;
+  };
+  exams: ExamListItem[];
 }
 
-export interface TimetableSession {
+export interface SessionJrAllocation {
+  block_number: number;
+  faculty_id: number;
+  faculty_name: string;
+  employee_code: string;
+  dept_id: string;
+}
+
+export interface SessionSrAllocation {
+  faculty_id: number;
+  faculty_name: string;
+  employee_code: string;
+  designation: string;
+}
+
+export interface SessionSquad {
+  squad_number: number;
+  members: {
+    faculty_id: number;
+    faculty_name: string;
+    employee_code: string;
+    dept_id?: string;
+  }[];
+}
+
+export interface ExamResultSession {
+  schedule_id: number;
+  subject_name: string;
+  block_required: number;
+  dept_id: string;
   exam_date: string;
-  session: string;
-  subject: string;
-  student_count: number;
-  pwd_students: number;
-  normal_blocks: number;
-  pwd_blocks: number;
-  total_blocks: number;
+  shift: 'M' | 'E';
+  junior_supervisors: SessionJrAllocation[];
+  senior_supervisors: SessionSrAllocation[];
+  squads: SessionSquad[];
 }
 
-export interface SessionAllocationResult {
-  exam_date: string;
-  session: string;
-  subject: string;
-  totalBlocks: number;
-  juniorSupervisors: { block: number; faculty: Faculty; isPwd: boolean }[];
-  substituteJrSV: Faculty[];
-  seniorSupervisors: Faculty[];
-  squads: { squad: number; members: Faculty[] }[];
+export interface UnallocatedFaculty {
+  faculty_id: number;
+  employee_code: string;
+  faculty_name: string;
+  dept_id: string;
+  designation: string;
 }
 
-export interface AllocationResult {
-  sessions: SessionAllocationResult[];
-  unallocated: Faculty[];
+export interface AllocationSummary {
+  total_sessions: number;
+  total_junior_supervisors: number;
+  total_senior_supervisors: number;
+  total_squad_members: number;
+  total_unallocated: number;
+}
+
+export interface AllocationRunResponse {
+  message: string;
+  exam: {
+    exam_id: number;
+    exam_name: string;
+  };
+  summary: AllocationSummary;
+  warnings: string[];
+}
+
+export interface ExamResultResponse {
+  exam: {
+    exam_id: number;
+    exam_name: string;
+    total_blocks: number;
+    created_at: string;
+  };
+  summary: AllocationSummary;
+  sessions: ExamResultSession[];
+  unallocated: UnallocatedFaculty[];
 }

@@ -1,60 +1,29 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
-import { Faculty, FairnessCounter, AllocationResult, TimetableSession } from '@/types/exam';
+import React, { createContext, useContext, useMemo, useState } from 'react';
 
 interface AppState {
   isLoggedIn: boolean;
-  login: (u: string, p: string) => boolean;
+  login: (username: string, password: string) => boolean;
   logout: () => void;
-  faculties: Faculty[];
-  setFaculties: (f: Faculty[]) => void;
-  counters: Map<string, FairnessCounter>;
-  setCounters: (c: Map<string, FairnessCounter>) => void;
-  allocationResult: AllocationResult | null;
-  setAllocationResult: (r: AllocationResult | null) => void;
-  currentTerm: string;
-  setCurrentTerm: (t: string) => void;
-  totalStudents: number;
-  setTotalStudents: (n: number) => void;
-  timetableSessions: TimetableSession[];
-  setTimetableSessions: (s: TimetableSession[]) => void;
 }
 
 const AppContext = createContext<AppState | null>(null);
 
-export function AppProvider({ children }: { children: ReactNode }) {
+export function AppProvider({ children }: { children: React.ReactNode }) {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [faculties, setFaculties] = useState<Faculty[]>([]);
-  const [counters, setCounters] = useState<Map<string, FairnessCounter>>(new Map());
-  const [allocationResult, setAllocationResult] = useState<AllocationResult | null>(null);
-  const [currentTerm, setCurrentTerm] = useState('2025-Spring');
-  const [totalStudents, setTotalStudents] = useState(0);
-  const [timetableSessions, setTimetableSessions] = useState<TimetableSession[]>([]);
 
-  const login = (u: string, p: string) => {
-    if (u === 'admin' && p === 'admin123') {
-      setIsLoggedIn(true);
-      return true;
-    }
-    return false;
-  };
+  const value = useMemo<AppState>(() => ({
+    isLoggedIn,
+    login: (username, password) => {
+      if (username === 'admin' && password === 'admin123') {
+        setIsLoggedIn(true);
+        return true;
+      }
+      return false;
+    },
+    logout: () => setIsLoggedIn(false),
+  }), [isLoggedIn]);
 
-  const logout = () => {
-    setIsLoggedIn(false);
-  };
-
-  return (
-    <AppContext.Provider value={{
-      isLoggedIn, login, logout,
-      faculties, setFaculties,
-      counters, setCounters,
-      allocationResult, setAllocationResult,
-      currentTerm, setCurrentTerm,
-      totalStudents, setTotalStudents,
-      timetableSessions, setTimetableSessions,
-    }}>
-      {children}
-    </AppContext.Provider>
-  );
+  return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }
 
 export function useAppState() {

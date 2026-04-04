@@ -1,201 +1,208 @@
-import { useState, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAppState } from '@/context/AppContext';
-import { runAllocation } from '@/lib/allocation';
-import { TimetableSession } from '@/types/exam';
-import { Button } from '@/components/ui/button';
-import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from '@/components/ui/table';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Calculator, FileSpreadsheet, LayoutGrid, Play, Upload } from 'lucide-react';
 import { toast } from 'sonner';
-import { Upload, Play, FileSpreadsheet, LayoutGrid, Calculator } from 'lucide-react';
-import * as XLSX from 'xlsx';
+import { getExams, runAllocation, uploadScheduleFile } from '@/lib/api';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import type { ScheduleUploadResponse } from '@/types/exam';
 
 export default function AllocationPage() {
-  const { faculties, counters, setAllocationResult, setTotalStudents, currentTerm, timetableSessions, setTimetableSessions } = useAppState();
-  const [dragActive, setDragActive] = useState(false);
+  const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const [examName, setExamName] = useState('');
+  const [schedulePreview, setSchedulePreview] = useState<ScheduleUploadResponse | null>(null);
+  const [selectedExamId, setSelectedExamId] = useState<number | null>(null);
 
-  const totalBlocks = timetableSessions.reduce((sum, s) => sum + s.total_blocks, 0);
-  const totalStudents = timetableSessions.reduce((sum, s) => sum + s.student_count + s.pwd_students, 0);
+  const examsQuery = useQuery({
+    queryKey: ['exams'],
+    queryFn: getExams,
+  });
 
-  const parseTimetable = useCallback((file: File) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const data = new Uint8Array(e.target?.result as ArrayBuffer);
-        const wb = XLSX.read(data, { type: 'array' });
-        const ws = wb.Sheets[wb.SheetNames[0]];
-        const rows: any[] = XLSX.utils.sheet_to_json(ws);
+  useEffect(() => {
+    if (!selectedExamId && examsQuery.data?.length) {
+      setSelectedExamId(examsQuery.data[0].exam_id);
+    }
+  }, [examsQuery.data, selectedExamId]);
 
-        if (rows.length === 0) {
-          toast.error('Timetable file is empty');
-          return;
-        }
+  const uploadMutation = useMutation({
+    mutationFn: ({ name, file }: { name: string; file: File }) => uploadScheduleFile(name, file),
+    onSuccess: (result) => {
+      setSchedulePreview(result);
+      setSelectedExamId(result.exam_id);
+      setExamName('');
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['exams'] });
+      toast.success(result.message);
+    },
+    onError: (error: Error) => {
+      toast.error(error.message);
+    },
+  });
 
-        const sessions: TimetableSession[] = rows.map(row => {
-          const studentCount = Number(row.student_count || row.students || row.Student_Count || 0);
-          const pwdStudents = Number(row.pwd_students || row.pwd || row.PwD_Students || 0);
-          const normalBlocks = Math.ceil(studentCount / 36);
-          const pwdBlocks = pwdStudents > 0 ? Math.ceil(pwdStudents / 36) : 0;
-
-          return {
-            exam_date: String(row.exam_date || row.date || row.Date || ''),
-            session: String(row.session || row.Session || ''),
-            subject: String(row.subject || row.Subject || ''),
-            student_count: studentCount,
-            pwd_students: pwdStudents,
-            normal_blocks: normalBlocks,
-            pwd_blocks: pwdBlocks,
-            total_blocks: normalBlocks + pwdBlocks,
-          };
-        });
-
-        setTimetableSessions(sessions);
-        toast.success(`Loaded ${sessions.length} exam sessions`);
-      } catch {
-        toast.error('Failed to parse timetable file');
+  const allocationMutation = useMutation({
+    mutationFn: runAllocation,
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['exams'] });
+      queryClient.invalidateQueries({ queryKey: ['exam-result', result.exam.exam_id] });
+      if (result.warnings.length) {
+        toast.warning(result.warnings[0]);
+      } else {
+        toast.success(result.message);
       }
-    };
-    reader.readAsArrayBuffer(file);
-  }, [setTimetableSessions]);
+      navigate(`/dashboard/results?examId=${result.exam.exam_id}`);
+    },
+    onError: (error: Error) => {
+      toast.error(error.message);
+    },
+  });
 
-  const handleFile = (file: File) => {
-    if (!file.name.match(/\.(xlsx|xls)$/i)) {
-      toast.error('Please upload an Excel file (.xlsx or .xls)');
+  const handleScheduleFile = (file?: File) => {
+    if (!file) return;
+    if (!examName.trim()) {
+      toast.error('Enter an exam cycle name before uploading the schedule.');
       return;
     }
-    parseTimetable(file);
+    uploadMutation.mutate({ name: examName.trim(), file });
   };
 
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setDragActive(false);
-    if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
-  };
-
-  const handleAllocate = () => {
-    if (faculties.length === 0) {
-      toast.error('Upload faculty data first');
-      return;
-    }
-    if (timetableSessions.length === 0) {
-      toast.error('Upload exam timetable first');
-      return;
-    }
-
-    setTotalStudents(totalStudents);
-    const result = runAllocation(faculties, timetableSessions, counters, currentTerm);
-    setAllocationResult(result);
-    toast.success('Allocation completed for all sessions!');
-    navigate('/dashboard/results');
-  };
+  const selectedExam = examsQuery.data?.find((exam) => exam.exam_id === selectedExamId) ?? null;
 
   return (
-    <div className="space-y-6 max-w-5xl">
+    <div className="space-y-6 max-w-6xl">
       <div>
-        <h1 className="text-2xl font-display font-bold text-foreground">Run Allocation</h1>
-        <p className="text-sm text-muted-foreground mt-1">Upload exam timetable and generate session-wise duty allocation</p>
+        <h1 className="text-2xl font-display font-bold text-foreground">Allocation Engine</h1>
+        <p className="text-sm text-muted-foreground mt-1">Upload a schedule into MySQL, then run the Node.js allocation engine for that exam cycle.</p>
       </div>
 
-      {/* Upload Area */}
       <div className="glass-card rounded-xl p-6 space-y-4">
-        <h2 className="text-lg font-semibold flex items-center gap-2">
-          <FileSpreadsheet className="w-5 h-5 text-primary" />
-          Exam Timetable Upload
-        </h2>
-        <div
-          className={`border-2 border-dashed rounded-xl p-8 text-center transition-colors cursor-pointer ${
-            dragActive ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'
-          }`}
-          onDragOver={e => { e.preventDefault(); setDragActive(true); }}
-          onDragLeave={() => setDragActive(false)}
-          onDrop={handleDrop}
-          onClick={() => {
-            const input = document.createElement('input');
-            input.type = 'file';
-            input.accept = '.xlsx,.xls';
-            input.onchange = (e: any) => { if (e.target.files[0]) handleFile(e.target.files[0]); };
-            input.click();
-          }}
-        >
-          <Upload className="w-10 h-10 mx-auto text-muted-foreground mb-3" />
-          <p className="text-sm text-muted-foreground">
-            Drag & drop timetable Excel file or <span className="text-primary font-medium">click to browse</span>
-          </p>
-          <p className="text-xs text-muted-foreground mt-1">
-            Required columns: exam_date, session, subject, student_count, pwd_students
-          </p>
+        <div className="grid gap-4 md:grid-cols-[1.4fr_1fr]">
+          <div className="space-y-2">
+            <label htmlFor="examName" className="text-sm font-medium">Exam cycle name</label>
+            <Input
+              id="examName"
+              placeholder="Example: Winter Semester 2026"
+              value={examName}
+              onChange={(event) => setExamName(event.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Upload exam schedule</label>
+            <div
+              className="border-2 border-dashed rounded-xl p-6 text-center cursor-pointer hover:border-primary/50 transition-colors"
+              onClick={() => document.getElementById('schedule-file-input')?.click()}
+            >
+              <Upload className="w-8 h-8 mx-auto text-muted-foreground mb-2" />
+              <p className="text-sm text-muted-foreground">Click to upload `.xlsx` or `.xls`</p>
+              <input
+                id="schedule-file-input"
+                type="file"
+                accept=".xlsx,.xls"
+                className="hidden"
+                onChange={(event) => handleScheduleFile(event.target.files?.[0])}
+              />
+            </div>
+          </div>
         </div>
+        <p className="text-xs text-muted-foreground">Required schedule columns: subject_name, block_required, dept_id, exam_date, shift.</p>
       </div>
 
-      {/* Preview Table */}
-      {timetableSessions.length > 0 && (
+      {schedulePreview && (
         <>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="glass-card rounded-xl p-4 text-center">
+              <LayoutGrid className="w-5 h-5 mx-auto text-primary mb-1" />
+              <p className="text-2xl font-bold text-foreground">{schedulePreview.total_blocks}</p>
+              <p className="text-xs text-muted-foreground">Blocks</p>
+            </div>
+            <div className="glass-card rounded-xl p-4 text-center">
+              <Calculator className="w-5 h-5 mx-auto text-primary mb-1" />
+              <p className="text-2xl font-bold text-foreground">{schedulePreview.total_rows}</p>
+              <p className="text-xs text-muted-foreground">Schedule Rows</p>
+            </div>
+            <div className="glass-card rounded-xl p-4 text-center">
+              <FileSpreadsheet className="w-5 h-5 mx-auto text-primary mb-1" />
+              <p className="text-lg font-bold text-foreground">{schedulePreview.exam_name}</p>
+              <p className="text-xs text-muted-foreground">Uploaded Exam</p>
+            </div>
+          </div>
+
           <div className="glass-card rounded-xl overflow-hidden">
             <div className="p-4 border-b border-border">
-              <h2 className="font-semibold">Timetable Preview — {timetableSessions.length} sessions</h2>
+              <h2 className="font-semibold">Schedule Preview</h2>
             </div>
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Date</TableHead>
-                  <TableHead>Session</TableHead>
+                  <TableHead>Shift</TableHead>
+                  <TableHead>Department</TableHead>
                   <TableHead>Subject</TableHead>
-                  <TableHead className="text-right">Students</TableHead>
-                  <TableHead className="text-right">PwD</TableHead>
                   <TableHead className="text-right">Blocks</TableHead>
-                  <TableHead className="text-right">PwD Blocks</TableHead>
-                  <TableHead className="text-right">Total Blocks</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {timetableSessions.map((s, i) => (
-                  <TableRow key={i}>
-                    <TableCell>{s.exam_date}</TableCell>
-                    <TableCell>{s.session}</TableCell>
-                    <TableCell>{s.subject}</TableCell>
-                    <TableCell className="text-right">{s.student_count}</TableCell>
-                    <TableCell className="text-right">{s.pwd_students}</TableCell>
-                    <TableCell className="text-right">{s.normal_blocks}</TableCell>
-                    <TableCell className="text-right">{s.pwd_blocks}</TableCell>
-                    <TableCell className="text-right font-bold">{s.total_blocks}</TableCell>
+                {schedulePreview.preview.map((row, index) => (
+                  <TableRow key={`${row.subject_name}-${index}`}>
+                    <TableCell>{row.exam_date}</TableCell>
+                    <TableCell>{row.shift}</TableCell>
+                    <TableCell>{row.dept_id}</TableCell>
+                    <TableCell>{row.subject_name}</TableCell>
+                    <TableCell className="text-right">{row.block_required}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
           </div>
-
-          {/* Summary Cards */}
-          <div className="grid grid-cols-3 gap-4">
-            <div className="glass-card rounded-xl p-4 text-center">
-              <LayoutGrid className="w-5 h-5 mx-auto text-primary mb-1" />
-              <p className="text-2xl font-bold text-foreground">{totalBlocks}</p>
-              <p className="text-xs text-muted-foreground">Total Blocks</p>
-            </div>
-            <div className="glass-card rounded-xl p-4 text-center">
-              <Calculator className="w-5 h-5 mx-auto text-primary mb-1" />
-              <p className="text-2xl font-bold text-foreground">{totalStudents}</p>
-              <p className="text-xs text-muted-foreground">Total Students</p>
-            </div>
-            <div className="glass-card rounded-xl p-4 text-center">
-              <FileSpreadsheet className="w-5 h-5 mx-auto text-primary mb-1" />
-              <p className="text-2xl font-bold text-foreground">{timetableSessions.length}</p>
-              <p className="text-xs text-muted-foreground">Sessions</p>
-            </div>
-          </div>
-
-          {/* Faculty info + Run button */}
-          <div className="glass-card rounded-xl p-6 space-y-4">
-            <div className="flex items-center gap-3 text-sm text-muted-foreground">
-              <span>Faculty loaded: <strong className="text-foreground">{faculties.length}</strong></span>
-            </div>
-            <Button onClick={handleAllocate} className="w-full" size="lg" disabled={faculties.length === 0}>
-              <Play className="w-4 h-4 mr-2" /> Generate Allocation for All Sessions
-            </Button>
-          </div>
         </>
       )}
+
+      <div className="glass-card rounded-xl p-6 space-y-4">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <h2 className="font-semibold">Run for Uploaded Exam</h2>
+            <p className="text-sm text-muted-foreground mt-1">Choose an uploaded exam cycle and persist its allocations.</p>
+          </div>
+          <select
+            className="min-w-[260px] rounded-md border bg-background px-3 py-2 text-sm"
+            value={selectedExamId ?? ''}
+            onChange={(event) => setSelectedExamId(Number(event.target.value))}
+          >
+            <option value="" disabled>Select exam</option>
+            {examsQuery.data?.map((exam) => (
+              <option key={exam.exam_id} value={exam.exam_id}>
+                {exam.exam_name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {selectedExam && (
+          <div className="text-sm text-muted-foreground">
+            {selectedExam.total_schedules} schedules, {selectedExam.total_blocks} blocks, created {new Date(selectedExam.created_at).toLocaleString()}
+          </div>
+        )}
+
+        <Button
+          onClick={() => selectedExamId && allocationMutation.mutate(selectedExamId)}
+          className="w-full"
+          size="lg"
+          disabled={!selectedExamId || allocationMutation.isPending}
+        >
+          <Play className="w-4 h-4 mr-2" />
+          {allocationMutation.isPending ? 'Running allocation...' : 'Generate Allocation'}
+        </Button>
+      </div>
     </div>
   );
 }
