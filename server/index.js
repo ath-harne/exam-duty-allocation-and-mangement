@@ -6,7 +6,7 @@ import { initDatabase, query, withTransaction } from './db.js';
 import { generateAllocations } from './services/allocationEngine.js';
 import { parseFacultyWorkbook, parseScheduleWorkbook } from './services/excelParsers.js';
 import {
-  buildExcelReport,
+  buildMatrixExcelReport,
   streamJuniorSupervisorPdf,
   streamSeniorPdf,
   streamSquadPdf,
@@ -490,15 +490,33 @@ app.get('/api/exams/:examId/results', asyncHandler(async (req, res) => {
   res.json(result);
 }));
 
-app.get('/api/exams/:examId/reports/excel', asyncHandler(async (req, res) => {
+app.get('/api/exams/:examId/reports/excel/junior-supervisors', asyncHandler(async (req, res) => {
   const result = await getExamResult(Number(req.params.examId));
-  if (!result) {
-    return res.status(404).json({ message: 'Exam not found.' });
-  }
+  if (!result) return res.status(404).json({ message: 'Exam not found.' });
 
-  const buffer = await buildExcelReport(result.exam, result.allocations, result.unallocated);
+  const buffer = await buildMatrixExcelReport('Junior Supervisor Duty Schedule', result.exam, result.allocations, 'Jr_SV');
   res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-  res.setHeader('Content-Disposition', `attachment; filename="exam-${result.exam.exam_id}-allocation.xlsx"`);
+  res.setHeader('Content-Disposition', `attachment; filename="exam-${result.exam.exam_id}-jr-sv.xlsx"`);
+  res.send(Buffer.from(buffer));
+}));
+
+app.get('/api/exams/:examId/reports/excel/squads', asyncHandler(async (req, res) => {
+  const result = await getExamResult(Number(req.params.examId));
+  if (!result) return res.status(404).json({ message: 'Exam not found.' });
+
+  const buffer = await buildMatrixExcelReport('Squad Duty Schedule', result.exam, result.allocations, 'Squad');
+  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  res.setHeader('Content-Disposition', `attachment; filename="exam-${result.exam.exam_id}-squads.xlsx"`);
+  res.send(Buffer.from(buffer));
+}));
+
+app.get('/api/exams/:examId/reports/excel/senior-supervisors', asyncHandler(async (req, res) => {
+  const result = await getExamResult(Number(req.params.examId));
+  if (!result) return res.status(404).json({ message: 'Exam not found.' });
+
+  const buffer = await buildMatrixExcelReport('Senior Supervisor Duty Schedule', result.exam, result.allocations, 'Sr_SV');
+  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  res.setHeader('Content-Disposition', `attachment; filename="exam-${result.exam.exam_id}-senior-sv.xlsx"`);
   res.send(Buffer.from(buffer));
 }));
 

@@ -83,12 +83,26 @@ export default function ResultsPage() {
               ))}
             </select>
 
-            <Button asChild variant="outline" className="w-full">
-              <a href={buildReportUrl(exam.exam_id, 'excel')}>
-                <Download className="mr-2 h-4 w-4" />
-                Download Excel Report
-              </a>
-            </Button>
+            <div className="flex flex-col gap-2">
+              <Button asChild variant="outline" className="w-full justify-start text-left">
+                <a href={buildReportUrl(exam.exam_id, 'excel/junior-supervisors')}>
+                  <Download className="mr-2 h-4 w-4 shrink-0" />
+                  Excel: Junior Supervisors
+                </a>
+              </Button>
+              <Button asChild variant="outline" className="w-full justify-start text-left">
+                <a href={buildReportUrl(exam.exam_id, 'excel/squads')}>
+                  <Download className="mr-2 h-4 w-4 shrink-0" />
+                  Excel: Squad Teams
+                </a>
+              </Button>
+              <Button asChild variant="outline" className="w-full justify-start text-left">
+                <a href={buildReportUrl(exam.exam_id, 'excel/senior-supervisors')}>
+                  <Download className="mr-2 h-4 w-4 shrink-0" />
+                  Excel: Senior Supervisors
+                </a>
+              </Button>
+            </div>
           </div>
         </div>
       </section>

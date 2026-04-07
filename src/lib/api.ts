@@ -61,6 +61,6 @@ export async function getExamResult(examId: number) {
   return parseResponse<ExamResultResponse>(await fetch(`${API_BASE}/exams/${examId}/results`));
 }
 
-export function buildReportUrl(examId: number, report: 'excel' | 'junior-supervisors.pdf' | 'squads.pdf' | 'senior-supervisors.pdf' | 'unallocated.pdf') {
+export function buildReportUrl(examId: number, report: 'excel/junior-supervisors' | 'excel/squads' | 'excel/senior-supervisors' | 'junior-supervisors.pdf' | 'squads.pdf' | 'senior-supervisors.pdf' | 'unallocated.pdf') {
   return `${API_BASE}/exams/${examId}/reports/${report}`;
 }

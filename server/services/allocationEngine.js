@@ -114,34 +114,41 @@ function buildRandomOrderMap(faculties) {
   return new Map(shuffled.map((item, index) => [item.faculty_id, index]));
 }
 
-function createFairnessComparator({ counters, randomOrder, role, extraCompare }) {
+function createRoleComparator(role, counters, randomOrder) {
   return (a, b) => {
-    const counterA = getCounter(counters, a.faculty_id);
-    const counterB = getCounter(counters, b.faculty_id);
+    const cA = getCounter(counters, a.faculty_id);
+    const cB = getCounter(counters, b.faculty_id);
     const roleKey = roleCountKey(role);
 
-    if (counterA[roleKey] !== counterB[roleKey]) {
-      return counterA[roleKey] - counterB[roleKey];
+    if (role === 'Sr_SV') {
+      // 1. Lowest sr_sv_count first (fairness)
+      if (cA[roleKey] !== cB[roleKey]) return cA[roleKey] - cB[roleKey];
+      // 2. Higher experience first
+      const expDiff = Number(b.experience_years ?? 0) - Number(a.experience_years ?? 0);
+      if (expDiff !== 0) return expDiff;
+      // 3. Not recently allocated (older last_allocated first)
+      return compareNullableAscending(cA.last_allocated_order, cB.last_allocated_order);
     }
-
-    const termCompare = compareNullableAscending(counterA.last_allocated_order, counterB.last_allocated_order);
-    if (termCompare !== 0) {
-      return termCompare;
+    
+    if (role === 'Jr_SV') {
+      if (a.teaching_type !== b.teaching_type) return a.teaching_type === 'T' ? -1 : 1;
+      if (cA[roleKey] !== cB[roleKey]) return cA[roleKey] - cB[roleKey];
+      if (cA.total_allocations !== cB.total_allocations) return cA.total_allocations - cB.total_allocations;
+      const termCompare = compareNullableAscending(cA.last_allocated_order, cB.last_allocated_order);
+      if (termCompare !== 0) return termCompare;
+      const randomCompare = (randomOrder.get(a.faculty_id) ?? 0) - (randomOrder.get(b.faculty_id) ?? 0);
+      if (randomCompare !== 0) return randomCompare;
+      return a.name.localeCompare(b.name);
     }
-
-    if (typeof extraCompare === 'function') {
-      const customCompare = extraCompare(a, b);
-      if (customCompare !== 0) {
-        return customCompare;
-      }
+    
+    if (role === 'Squad') {
+      if (cA[roleKey] !== cB[roleKey]) return cA[roleKey] - cB[roleKey];
+      if (cA.total_allocations !== cB.total_allocations) return cA.total_allocations - cB.total_allocations;
+      const termCompare = compareNullableAscending(cA.last_allocated_order, cB.last_allocated_order);
+      if (termCompare !== 0) return termCompare;
+      return Number(b.experience_years ?? 0) - Number(a.experience_years ?? 0);
     }
-
-    const randomCompare = (randomOrder.get(a.faculty_id) ?? 0) - (randomOrder.get(b.faculty_id) ?? 0);
-    if (randomCompare !== 0) {
-      return randomCompare;
-    }
-
-    return a.name.localeCompare(b.name);
+    return 0;
   };
 }
 
@@ -169,74 +176,70 @@ function hasSeniorDesignationOrQualification(faculty) {
 }
 
 function sortSeniorCandidates(faculties, counters, randomOrder) {
-  return [...faculties].sort(
-    createFairnessComparator({
-      counters,
-      randomOrder,
-      role: 'Sr_SV',
-      extraCompare: (a, b) => Number(b.experience_years ?? 0) - Number(a.experience_years ?? 0),
-    })
-  );
+  return [...faculties].sort(createRoleComparator('Sr_SV', counters, randomOrder));
 }
 
 function isJuniorEligible(faculty) {
   if (faculty.teaching_type === 'NT') {
     return faculty.experience_years >= 5;
   }
-
   return ['Graduate', 'Postgraduate', 'PhD'].includes(faculty.qualification);
 }
 
 function selectGlobalSeniorSupervisors(faculties, counters, examId, totalStudents, termLabel, randomOrder) {
+  // Rule: <800 students = 1 Sr SV, >=800 = 2 Sr SV
   const requiredCount = totalStudents < 800 ? 1 : 2;
+
+  // Tier 1: Strict eligibility — (HoD / Assoc Prof / Prof OR PhD) AND experience >= 10
   let eligible = sortSeniorCandidates(
-    faculties.filter((faculty) => isSeniorEligible(faculty)),
+    faculties.filter((f) => isSeniorEligible(f)),
     counters,
     randomOrder
   );
 
+  // Tier 2 fallback: Right designation/qualification but slightly lower experience
   if (!eligible.length) {
     eligible = sortSeniorCandidates(
       faculties.filter(
-        (faculty) =>
-          hasSeniorDesignationOrQualification(faculty)
-          && Number(faculty.experience_years ?? 0) >= SENIOR_FALLBACK_EXPERIENCE_YEARS
+        (f) => hasSeniorDesignationOrQualification(f)
+          && Number(f.experience_years ?? 0) >= SENIOR_FALLBACK_EXPERIENCE_YEARS
       ),
       counters,
       randomOrder
     );
   }
 
-  // Real uploaded data may not contain HoD/Professor/PhD labels at all.
-  // In that case, still guarantee Sr SV selection from the most experienced faculty.
+  // Tier 3 fallback: At least 10 years experience (data may lack designation labels)
   if (!eligible.length) {
     eligible = sortSeniorCandidates(
-      faculties.filter((faculty) => Number(faculty.experience_years ?? 0) >= HIGH_EXPERIENCE_YEARS),
+      faculties.filter((f) => Number(f.experience_years ?? 0) >= HIGH_EXPERIENCE_YEARS),
       counters,
       randomOrder
     );
   }
 
+  // Tier 4 last-resort fallback
   if (!eligible.length) {
     eligible = sortSeniorCandidates(
-      faculties.filter((faculty) => Number(faculty.experience_years ?? 0) >= SENIOR_FALLBACK_EXPERIENCE_YEARS),
+      faculties.filter((f) => Number(f.experience_years ?? 0) >= SENIOR_FALLBACK_EXPERIENCE_YEARS),
       counters,
       randomOrder
     );
   }
 
-  console.log('Eligible Sr SV:', eligible.length);
+  console.log(`[Sr SV] Required: ${requiredCount}, Eligible pool: ${eligible.length}`);
 
+  // Pick exactly N — SAME selection used for ALL sessions (global assignment)
   const selected = eligible.slice(0, requiredCount);
+
+  // Update counters immediately after selection
   for (const faculty of selected) {
     updateCounter(counters, faculty.faculty_id, 'Sr_SV', examId, termLabel);
   }
 
-  console.log('Selected Sr SV:', selected.map((faculty) => ({
-    faculty_id: faculty.faculty_id,
-    name: faculty.name,
-    experience_years: faculty.experience_years,
-  })));
+  if (selected.length < requiredCount) {
+    console.warn(`[Sr SV] WARNING: Only ${selected.length}/${requiredCount} Sr SV could be selected.`);
+  }
 
   return selected;
 }
@@ -269,26 +272,52 @@ function allocateSequentialFaculty({
   globallyReservedFacultyIds,
   dayAllocatedFacultyIds,
   sessionUsedFacultyIds,
-  extraCompare,
   examId,
   termLabel,
+  scheduleDeptId,
+  totalDepartments,
 }) {
-  const sorted = getAvailableCandidates(
+  let available = getAvailableCandidates(
     faculties,
     sessionUsedFacultyIds,
     globallyReservedFacultyIds,
     dayAllocatedFacultyIds,
     eligibilityCheck
-  ).sort(
-    createFairnessComparator({
-      counters,
-      randomOrder,
-      role,
-      extraCompare,
-    })
   );
 
-  const selected = sorted.slice(0, count);
+  if (role === 'Jr_SV' && scheduleDeptId) {
+    available = available.filter(f => f.dept_id !== scheduleDeptId);
+  }
+
+  const sorted = available.sort(createRoleComparator(role, counters, randomOrder));
+
+  const selected = [];
+  const deptCounters = new Map();
+  const maxPerDept = (role === 'Jr_SV' && totalDepartments > 0) ? Math.ceil(count / totalDepartments) : null;
+
+  for (const faculty of sorted) {
+    if (selected.length >= count) break;
+
+    if (maxPerDept !== null) {
+      const dCount = deptCounters.get(faculty.dept_id) || 0;
+      if (dCount >= maxPerDept) continue;
+    }
+
+    selected.push(faculty);
+    if (maxPerDept !== null) {
+      deptCounters.set(faculty.dept_id, (deptCounters.get(faculty.dept_id) || 0) + 1);
+    }
+  }
+
+  if (selected.length < count && role === 'Jr_SV' && maxPerDept !== null) {
+    for (const faculty of sorted) {
+      if (selected.length >= count) break;
+      if (!selected.includes(faculty)) {
+        selected.push(faculty);
+      }
+    }
+  }
+
   for (const faculty of selected) {
     sessionUsedFacultyIds.add(faculty.faculty_id);
     dayAllocatedFacultyIds.add(faculty.faculty_id);
@@ -303,55 +332,55 @@ function isFemaleFaculty(faculty) {
   return gender === 'f' || gender === 'female';
 }
 
-function pickSquadMembers(eligibleCandidates, counters, randomOrder) {
+function pickSquadMembers(pool, counters) {
   const usedFacultyIds = new Set();
-  const pool = [...eligibleCandidates];
+  const getRemaining = () => pool.filter(f => !usedFacultyIds.has(f.faculty_id));
 
-  const femaleCandidates = pool
-    .filter((faculty) => isFemaleFaculty(faculty))
-    .sort(
-      createFairnessComparator({
-        counters,
-        randomOrder,
-        role: 'Squad',
-        extraCompare: (a, b) => Number(b.experience_years ?? 0) - Number(a.experience_years ?? 0),
-      })
-    );
-  const selectedFemale = femaleCandidates[0];
-  if (!selectedFemale) {
-    return null;
+  // Member 1 — Experience Leader (Highest exp, lowest squad_count)
+  const m1Sorted = getRemaining().sort((a, b) => {
+    const expA = Number(a.experience_years ?? 0);
+    const expB = Number(b.experience_years ?? 0);
+    if (expA !== expB) return expB - expA;
+    const cA = getCounter(counters, a.faculty_id);
+    const cB = getCounter(counters, b.faculty_id);
+    return cA.squad_count - cB.squad_count;
+  });
+  
+  const m1 = m1Sorted[0];
+  if (!m1) return null;
+  usedFacultyIds.add(m1.faculty_id);
+
+  // Member 2 — Female Constraint (Female, lowest squad_count)
+  const femaleSorted = getRemaining().filter(isFemaleFaculty).sort((a, b) => {
+    const cA = getCounter(counters, a.faculty_id);
+    const cB = getCounter(counters, b.faculty_id);
+    return cA.squad_count - cB.squad_count;
+  });
+  let m2 = femaleSorted[0];
+  if (!m2) {
+    // Fallback: Just grab someone with lowest squad count from remaining non-female pool
+    m2 = getRemaining().sort((a, b) => {
+      const cA = getCounter(counters, a.faculty_id);
+      const cB = getCounter(counters, b.faculty_id);
+      return cA.squad_count - cB.squad_count;
+    })[0];
   }
+  
+  if (!m2) return null;
+  usedFacultyIds.add(m2.faculty_id);
 
-  usedFacultyIds.add(selectedFemale.faculty_id);
+  // Member 3 — Balanced Selection (lowest total_allocations, lowest squad_count)
+  const balancedSorted = getRemaining().sort((a, b) => {
+    const cA = getCounter(counters, a.faculty_id);
+    const cB = getCounter(counters, b.faculty_id);
+    if (cA.total_allocations !== cB.total_allocations) return cA.total_allocations - cB.total_allocations;
+    return cA.squad_count - cB.squad_count;
+  });
+  
+  const m3 = balancedSorted[0];
+  if (!m3) return null;
 
-  const highExperienceCandidates = pool
-    .filter(
-      (faculty) => !usedFacultyIds.has(faculty.faculty_id) && Number(faculty.experience_years ?? 0) >= HIGH_EXPERIENCE_YEARS
-    )
-    .sort((a, b) => Number(b.experience_years ?? 0) - Number(a.experience_years ?? 0));
-  const selectedHighExperience = highExperienceCandidates[0];
-  if (!selectedHighExperience) {
-    return null;
-  }
-
-  usedFacultyIds.add(selectedHighExperience.faculty_id);
-
-  const remainingCandidates = pool
-    .filter((faculty) => !usedFacultyIds.has(faculty.faculty_id))
-    .sort(
-      createFairnessComparator({
-        counters,
-        randomOrder,
-        role: 'Squad',
-        extraCompare: (a, b) => Number(b.experience_years ?? 0) - Number(a.experience_years ?? 0),
-      })
-    );
-  const selectedThird = remainingCandidates[0];
-  if (!selectedThird) {
-    return null;
-  }
-
-  return [selectedFemale, selectedHighExperience, selectedThird];
+  return [m1, m2, m3];
 }
 
 function allocateSquads({
@@ -375,16 +404,7 @@ function allocateSquads({
   const remainingPool = [...availablePool];
 
   for (let squadNumber = 1; squadNumber <= squadCount; squadNumber += 1) {
-    const eligible = remainingPool.sort(
-      createFairnessComparator({
-        counters,
-        randomOrder,
-        role: 'Squad',
-        extraCompare: (a, b) => b.experience_years - a.experience_years,
-      })
-    );
-
-    const members = pickSquadMembers(eligible, counters, randomOrder);
+    const members = pickSquadMembers(remainingPool, counters);
     if (!members) {
       break;
     }
@@ -447,6 +467,7 @@ export function generateAllocation(timetable, facultyData, options = {}) {
   const counterMap = createCounterMap(fairnessCounters);
   const randomOrder = buildRandomOrderMap(activeFaculties);
   const termLabel = examName || (examId !== null ? String(examId) : null);
+  const totalDepartments = Math.max(1, new Set(activeFaculties.map((f) => f.dept_id).filter(Boolean)).size);
   const warnings = [];
   const allocations = [];
   const sessions = [];
@@ -483,12 +504,8 @@ export function generateAllocation(timetable, facultyData, options = {}) {
       sessionUsedFacultyIds,
       examId,
       termLabel,
-      extraCompare: (a, b) => {
-        if (a.teaching_type !== b.teaching_type) {
-          return a.teaching_type === 'T' ? -1 : 1;
-        }
-        return 0;
-      },
+      scheduleDeptId: schedule.dept_id,
+      totalDepartments,
     });
 
     const substitutes = allocateSequentialFaculty({
@@ -503,12 +520,8 @@ export function generateAllocation(timetable, facultyData, options = {}) {
       sessionUsedFacultyIds,
       examId,
       termLabel,
-      extraCompare: (a, b) => {
-        if (a.teaching_type !== b.teaching_type) {
-          return a.teaching_type === 'T' ? -1 : 1;
-        }
-        return 0;
-      },
+      scheduleDeptId: schedule.dept_id,
+      totalDepartments,
     });
 
     const squadsRequired = Math.ceil(schedule.blocks / 10);

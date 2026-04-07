@@ -12,13 +12,22 @@ function uniqueRowsByFaculty(rows) {
   );
 }
 
+function formatShortDate(dateVal) {
+  const d = new Date(dateVal);
+  if (isNaN(d.getTime())) return String(dateVal);
+  const day = String(d.getDate()).padStart(2, '0');
+  const month = d.toLocaleString('en-US', { month: 'short' });
+  return `${day}-${month}`;
+}
+
 function groupByFacultyAndSlot(rows, role) {
   const slotMap = new Map();
   const facultyMap = new Map();
 
   for (const row of rows.filter((item) => item.role === role)) {
-    const slotKey = `${row.exam_date} ${row.shift}`;
-    slotMap.set(slotKey, { exam_date: row.exam_date, shift: row.shift });
+    const formattedDate = formatShortDate(row.exam_date);
+    const slotKey = `${formattedDate} ${row.shift}`;
+    slotMap.set(slotKey, { exam_date: formattedDate, shift: row.shift, raw_date: row.exam_date });
 
     if (!facultyMap.has(row.faculty_id)) {
       facultyMap.set(row.faculty_id, {
@@ -37,9 +46,12 @@ function groupByFacultyAndSlot(rows, role) {
   }
 
   return {
-    slots: Array.from(slotMap.values()).sort((a, b) =>
-      `${a.exam_date}${a.shift}`.localeCompare(`${b.exam_date}${b.shift}`)
-    ),
+    slots: Array.from(slotMap.values()).sort((a, b) => {
+      const dateA = new Date(a.raw_date).getTime();
+      const dateB = new Date(b.raw_date).getTime();
+      if (dateA !== dateB) return dateA - dateB;
+      return a.shift.localeCompare(b.shift);
+    }),
     faculties: Array.from(facultyMap.values()).sort((a, b) => a.faculty_name.localeCompare(b.faculty_name)),
   };
 }
@@ -95,66 +107,99 @@ function renderUnallocatedPdf(doc, title, subtitle, rows) {
   }
 }
 
-export async function buildExcelReport(exam, detailedRows, unallocatedRows) {
+export async function buildMatrixExcelReport(title, exam, detailedRows, role) {
   const workbook = new ExcelJS.Workbook();
-  workbook.creator = 'Exam Duty Allocation System';
-  workbook.subject = exam.exam_name;
-  workbook.created = new Date();
+  const sheet = workbook.addWorksheet('Duty Schedule');
 
-  const jrSheet = workbook.addWorksheet('Junior Supervisors');
-  jrSheet.columns = [
-    { header: 'Date', key: 'exam_date', width: 14 },
-    { header: 'Shift', key: 'shift', width: 10 },
-    { header: 'Subject', key: 'subject_name', width: 28 },
-    { header: 'Block', key: 'block_number', width: 10 },
-    { header: 'Faculty', key: 'faculty_name', width: 28 },
-    { header: 'Employee Code', key: 'employee_code', width: 18 },
-    { header: 'Department', key: 'dept_id', width: 14 },
-  ];
-  detailedRows.filter((row) => row.role === 'Jr_SV').forEach((row) => jrSheet.addRow(row));
+  const grouped = groupByFacultyAndSlot(detailedRows, role);
+  
+  const datesMap = new Map();
+  for (const slot of grouped.slots) {
+    if (!datesMap.has(slot.exam_date)) datesMap.set(slot.exam_date, new Set());
+    datesMap.get(slot.exam_date).add(slot.shift);
+  }
 
-  const squadSheet = workbook.addWorksheet('Squads');
-  squadSheet.columns = [
-    { header: 'Date', key: 'exam_date', width: 14 },
-    { header: 'Shift', key: 'shift', width: 10 },
-    { header: 'Subject', key: 'subject_name', width: 28 },
-    { header: 'Squad', key: 'squad_number', width: 10 },
-    { header: 'Faculty', key: 'faculty_name', width: 28 },
-    { header: 'Employee Code', key: 'employee_code', width: 18 },
-    { header: 'Department', key: 'dept_id', width: 14 },
-  ];
-  detailedRows.filter((row) => row.role === 'Squad').forEach((row) => squadSheet.addRow(row));
+  const dates = Array.from(datesMap.keys());
+  
+  if (dates.length === 0) {
+    sheet.addRow([title]);
+    sheet.addRow(['No allocations found for this role.']);
+    return workbook.xlsx.writeBuffer();
+  }
 
-  const seniorSheet = workbook.addWorksheet('Senior Supervisors');
-  seniorSheet.columns = [
-    { header: 'Date', key: 'exam_date', width: 14 },
-    { header: 'Shift', key: 'shift', width: 10 },
-    { header: 'Subject', key: 'subject_name', width: 28 },
-    { header: 'Faculty', key: 'faculty_name', width: 28 },
-    { header: 'Employee Code', key: 'employee_code', width: 18 },
-    { header: 'Designation', key: 'designation', width: 22 },
-  ];
-  uniqueRowsByFaculty(detailedRows.filter((row) => row.role === 'Sr_SV')).forEach((row) => seniorSheet.addRow(row));
+  const row1 = [title];
+  const row2 = ['Sr. No.', 'Name of the Faculty / Member'];
+  const row3 = ['', ''];
+  
+  for (const d of dates) {
+    const shifts = Array.from(datesMap.get(d)).sort();
+    for (const s of shifts) {
+      row2.push(d);
+      row3.push(s === 'Morning' ? 'M' : s === 'Evening' ? 'E' : s.substring(0, 3).toUpperCase());
+    }
+  }
 
-  const substituteSheet = workbook.addWorksheet('Substitutes');
-  substituteSheet.columns = [
-    { header: 'Date', key: 'exam_date', width: 14 },
-    { header: 'Shift', key: 'shift', width: 10 },
-    { header: 'Subject', key: 'subject_name', width: 28 },
-    { header: 'Faculty', key: 'faculty_name', width: 28 },
-    { header: 'Employee Code', key: 'employee_code', width: 18 },
-    { header: 'Department', key: 'dept_id', width: 14 },
-  ];
-  detailedRows.filter((row) => row.role === 'Substitute').forEach((row) => substituteSheet.addRow(row));
+  sheet.addRow(row1);
+  sheet.addRow(row2);
+  sheet.addRow(row3);
 
-  const unallocatedSheet = workbook.addWorksheet('Unallocated');
-  unallocatedSheet.columns = [
-    { header: 'Faculty', key: 'faculty_name', width: 28 },
-    { header: 'Employee Code', key: 'employee_code', width: 18 },
-    { header: 'Department', key: 'dept_id', width: 14 },
-    { header: 'Designation', key: 'designation', width: 22 },
-  ];
-  unallocatedRows.forEach((row) => unallocatedSheet.addRow(row));
+  let colIndex = 3;
+  for (const d of dates) {
+    const shiftsCount = datesMap.get(d).size;
+    if (shiftsCount > 1) {
+      // Row 2 is dates
+      sheet.mergeCells(2, colIndex, 2, colIndex + shiftsCount - 1);
+    }
+    colIndex += shiftsCount;
+  }
+  const totalCols = colIndex - 1;
+
+  sheet.mergeCells(1, 1, 1, totalCols); // Title
+  sheet.mergeCells(2, 1, 3, 1); // Sr No
+  sheet.mergeCells(2, 2, 3, 2); // Name
+
+  sheet.getRow(1).font = { bold: true, size: 14 };
+  sheet.getRow(1).alignment = { horizontal: 'center', vertical: 'middle' };
+  sheet.getRow(1).height = 30;
+
+  sheet.getRow(2).font = { bold: true, size: 11 };
+  sheet.getRow(2).alignment = { horizontal: 'center', vertical: 'middle' };
+  sheet.getRow(3).font = { bold: true, size: 10 };
+  sheet.getRow(3).alignment = { horizontal: 'center', vertical: 'middle' };
+
+  sheet.getColumn(1).width = 8;
+  sheet.getColumn(1).alignment = { horizontal: 'center', vertical: 'middle' };
+  sheet.getColumn(2).width = 32;
+  for (let i = 3; i <= totalCols; i++) {
+    sheet.getColumn(i).width = 8;
+    sheet.getColumn(i).alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+  }
+
+  grouped.faculties.forEach((faculty, index) => {
+    const row = [index + 1, faculty.faculty_name];
+    for (const d of dates) {
+      const shifts = Array.from(datesMap.get(d)).sort();
+      for (const s of shifts) {
+        const slotKey = `${d} ${s}`;
+        let val = faculty.slots[slotKey] || '';
+        if (val === 'Morning') val = 'M';
+        if (val === 'Evening') val = 'E';
+        row.push(val);
+      }
+    }
+    sheet.addRow(row);
+  });
+  
+  sheet.eachRow((row) => {
+    row.eachCell((cell) => {
+      cell.border = {
+        top: { style: 'thin' },
+        left: { style: 'thin' },
+        bottom: { style: 'thin' },
+        right: { style: 'thin' },
+      };
+    });
+  });
 
   return workbook.xlsx.writeBuffer();
 }
