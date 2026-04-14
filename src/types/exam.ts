@@ -11,6 +11,10 @@ export interface FacultyPreview {
   is_on_leave: boolean;
 }
 
+export interface FacultyListResponse extends FacultyPreview {
+  faculty_id: number;
+}
+
 export interface FacultyUploadResponse {
   message: string;
   total_records: number;
@@ -61,7 +65,8 @@ export interface DashboardResponse {
 }
 
 export interface SessionJrAllocation {
-  block_number: number;
+  allocation_id?: number;
+  block_number: number | null;
   faculty_id: number;
   faculty_name: string;
   employee_code: string;
@@ -81,7 +86,7 @@ export interface SessionSrAllocation {
 }
 
 export interface SessionSquad {
-  squad_number: number;
+  squad_number: number | null;
   members: {
     faculty_id: number;
     faculty_name: string;
@@ -153,4 +158,26 @@ export interface ExamResultResponse {
   summary: AllocationSummary;
   sessions: ExamResultSession[];
   unallocated: UnallocatedFaculty[];
+  allocations?: {
+    allocation_id: number;
+    role: string;
+    block_number: number | null;
+    squad_number: number | null;
+    exam_date: string;
+    shift: string;
+    schedule_id: number;
+    faculty_id: number;
+  }[];
+}
+
+export interface DaywiseAllocation {
+  allocation_id: number;
+  role: 'Jr_SV' | 'Squad';
+  block_number: number | null;
+  squad_number: number | null;
+  schedule_id: number;
+  faculty_id: number;
+  employee_code: string;
+  faculty_name: string;
+  dept_id: string;
 }

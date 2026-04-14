@@ -75,9 +75,20 @@ function normalizeSchedules(schedules) {
   return schedules.map((schedule) => {
     const studentCount = Number(schedule.student_count ?? schedule.block_required * BLOCK_SIZE ?? 0);
     const blocks = calculateBlocks(studentCount);
+    
+    let normalizedDate = schedule.exam_date;
+    if (normalizedDate instanceof Date) {
+      const year = normalizedDate.getFullYear();
+      const month = String(normalizedDate.getMonth() + 1).padStart(2, '0');
+      const day = String(normalizedDate.getDate()).padStart(2, '0');
+      normalizedDate = `${year}-${month}-${day}`;
+    } else if (typeof normalizedDate === 'string' && normalizedDate.includes('T')) {
+      normalizedDate = normalizedDate.split('T')[0];
+    }
 
     return {
       ...schedule,
+      exam_date: normalizedDate,
       student_count: studentCount,
       block_required: blocks,
       blocks,
@@ -479,10 +490,17 @@ export function generateAllocation(timetable, facultyData, options = {}) {
     fairnessCounters = [],
     examId = null,
     examName = '',
+    includesSpeciallyAbled = false,
+    includesMasters = false,
   } = options;
 
   const activeFaculties = facultyData.filter((faculty) => !faculty.is_on_leave);
-  const normalizedSchedules = normalizeSchedules(timetable);
+  const extraBlocks = (includesSpeciallyAbled ? 1 : 0) + (includesMasters ? 2 : 0);
+  const normalizedSchedules = normalizeSchedules(timetable).map(s => ({
+    ...s,
+    block_required: s.block_required + extraBlocks,
+    blocks: s.blocks + extraBlocks
+  }));
   const totalStudents = normalizedSchedules.reduce((sum, schedule) => sum + schedule.student_count, 0);
   const counterMap = createCounterMap(fairnessCounters);
   const randomOrder = buildRandomOrderMap(activeFaculties);
@@ -590,7 +608,7 @@ export function generateAllocation(timetable, facultyData, options = {}) {
         schedule_id: schedule.schedule_id,
         faculty_id: faculty.faculty_id,
         role: 'Jr_SV',
-        block_number: blockNumber,
+        block_number: null,
         squad_number: null,
         exam_date: schedule.exam_date,
         shift: schedule.shift,
@@ -620,7 +638,7 @@ export function generateAllocation(timetable, facultyData, options = {}) {
           faculty_id: member.faculty_id,
           role: 'Squad',
           block_number: null,
-          squad_number: squad.squad_number,
+          squad_number: null,
           exam_date: schedule.exam_date,
           shift: schedule.shift,
         });
@@ -705,10 +723,12 @@ export function generateAllocation(timetable, facultyData, options = {}) {
   };
 }
 
-export function generateAllocations({ faculties, fairnessCounters, schedules, examId, examName }) {
+export function generateAllocations({ faculties, fairnessCounters, schedules, examId, examName, includesSpeciallyAbled, includesMasters }) {
   return generateAllocation(schedules, faculties, {
     fairnessCounters,
     examId,
     examName,
+    includesSpeciallyAbled,
+    includesMasters,
   });
 }

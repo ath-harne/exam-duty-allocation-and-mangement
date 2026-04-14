@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Calculator, FileSpreadsheet, LayoutGrid, Play, Upload } from 'lucide-react';
 import { toast } from 'sonner';
-import { getExams, runAllocation, uploadScheduleFile } from '@/lib/api';
+import { getExams, getExamSchedules, runAllocation, updateScheduleBlock, uploadScheduleFile } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -22,6 +22,8 @@ export default function AllocationPage() {
   const [examName, setExamName] = useState('');
   const [schedulePreview, setSchedulePreview] = useState<ScheduleUploadResponse | null>(null);
   const [selectedExamId, setSelectedExamId] = useState<number | null>(null);
+  const [includesSpeciallyAbled, setIncludesSpeciallyAbled] = useState(false);
+  const [includesMasters, setIncludesMasters] = useState(false);
 
   const examsQuery = useQuery({
     queryKey: ['exams'],
@@ -34,6 +36,12 @@ export default function AllocationPage() {
     }
   }, [examsQuery.data, selectedExamId]);
 
+  const examSchedulesQuery = useQuery({
+    queryKey: ['schedules', selectedExamId],
+    queryFn: () => getExamSchedules(selectedExamId!),
+    enabled: !!selectedExamId,
+  });
+
   const uploadMutation = useMutation({
     mutationFn: ({ name, file }: { name: string; file: File }) => uploadScheduleFile(name, file),
     onSuccess: (result) => {
@@ -42,6 +50,7 @@ export default function AllocationPage() {
       setExamName('');
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       queryClient.invalidateQueries({ queryKey: ['exams'] });
+      queryClient.invalidateQueries({ queryKey: ['schedules'] });
       toast.success(result.message);
     },
     onError: (error: Error) => {
@@ -49,8 +58,25 @@ export default function AllocationPage() {
     },
   });
 
+  const updateBlockMutation = useMutation({
+    mutationFn: ({ scheduleId, blocks }: { scheduleId: number; blocks: number }) => updateScheduleBlock(scheduleId, blocks),
+    onSuccess: () => {
+      toast.success('Block requirement updated');
+      queryClient.invalidateQueries({ queryKey: ['schedules'] });
+      queryClient.invalidateQueries({ queryKey: ['exams'] });
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
+  const handleUpdateBlock = (scheduleId: number, value: string) => {
+    const blocks = parseInt(value, 10);
+    if (isNaN(blocks) || blocks < 0) return;
+    updateBlockMutation.mutate({ scheduleId, blocks });
+  };
+
   const allocationMutation = useMutation({
-    mutationFn: runAllocation,
+    mutationFn: ({ examId, specificallyAbled, masters }: { examId: number, specificallyAbled: boolean, masters: boolean }) => 
+      runAllocation(examId, specificallyAbled, masters),
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       queryClient.invalidateQueries({ queryKey: ['exams'] });
@@ -134,22 +160,24 @@ export default function AllocationPage() {
         </div>
       </section>
 
-      {schedulePreview && (
+      {selectedExamId && examSchedulesQuery.data && examSchedulesQuery.data.length > 0 && (
         <>
           <section className="grid gap-4 md:grid-cols-3">
             <div className="metric-card">
               <LayoutGrid className="h-5 w-5 text-primary" />
-              <p className="mt-4 text-4xl font-extrabold text-foreground">{schedulePreview.total_blocks}</p>
+              <p className="mt-4 text-4xl font-extrabold text-foreground">
+                {examSchedulesQuery.data.reduce((sum, s) => sum + s.block_required, 0)}
+              </p>
               <p className="mt-2 text-sm text-muted-foreground">Total blocks required for this examination.</p>
             </div>
             <div className="metric-card">
               <Calculator className="h-5 w-5 text-primary" />
-              <p className="mt-4 text-4xl font-extrabold text-foreground">{schedulePreview.total_rows}</p>
+              <p className="mt-4 text-4xl font-extrabold text-foreground">{examSchedulesQuery.data.length}</p>
               <p className="mt-2 text-sm text-muted-foreground">Schedule entries available in the uploaded file.</p>
             </div>
             <div className="metric-card">
               <FileSpreadsheet className="h-5 w-5 text-primary" />
-              <p className="mt-4 text-2xl font-extrabold text-foreground">{schedulePreview.exam_name}</p>
+              <p className="mt-4 text-2xl font-extrabold text-foreground">{selectedExam?.exam_name || 'Selected Exam'}</p>
               <p className="mt-2 text-sm text-muted-foreground">Current examination selected for allocation.</p>
             </div>
           </section>
@@ -157,10 +185,10 @@ export default function AllocationPage() {
           <section className="glass-card overflow-hidden">
             <div className="border-b border-white/35 px-6 py-5">
               <h2 className="text-lg font-bold text-foreground">Schedule Preview</h2>
-              <p className="mt-2 text-sm text-muted-foreground">Review the schedule entries before generating the duty allocation.</p>
+              <p className="mt-2 text-sm text-muted-foreground">Review and edit schedule entries before generating the duty allocation.</p>
             </div>
 
-            <div className="overflow-x-auto px-2 pb-2">
+            <div className="overflow-y-auto px-2 pb-2 max-h-[600px]">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -168,17 +196,34 @@ export default function AllocationPage() {
                     <TableHead>Shift</TableHead>
                     <TableHead>Department</TableHead>
                     <TableHead>Subject</TableHead>
-                    <TableHead className="text-right">Blocks</TableHead>
+                    <TableHead className="w-[120px] text-right">Blocks</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {schedulePreview.preview.map((row, index) => (
-                    <TableRow key={`${row.subject_name}-${index}`} className="border-white/30">
-                      <TableCell>{row.exam_date}</TableCell>
+                  {examSchedulesQuery.data.map((row) => (
+                    <TableRow key={row.schedule_id} className="border-white/30">
+                      <TableCell>
+                        {new Date(row.exam_date).toLocaleDateString(undefined, {
+                          year: 'numeric',
+                          month: 'short',
+                          day: 'numeric'
+                        })}
+                      </TableCell>
                       <TableCell>{row.shift}</TableCell>
                       <TableCell>{row.dept_id}</TableCell>
                       <TableCell className="font-semibold">{row.subject_name}</TableCell>
-                      <TableCell className="text-right">{row.block_required}</TableCell>
+                      <TableCell className="text-right">
+                        <Input
+                          type="number"
+                          className="h-9 w-20 ml-auto bg-white/40 border-white/55"
+                          defaultValue={row.block_required}
+                          onBlur={(e) => {
+                            if (e.target.value !== String(row.block_required)) {
+                              handleUpdateBlock(row.schedule_id, e.target.value);
+                            }
+                          }}
+                        />
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -197,20 +242,44 @@ export default function AllocationPage() {
             </p>
           </div>
 
-          <div className="w-full max-w-sm">
-            <label className="text-sm font-semibold text-foreground">Select Examination</label>
-            <select
-              className="mt-3 min-h-11 w-full rounded-xl border border-white/55 bg-white/40 px-4 py-3 text-sm text-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.55)] backdrop-blur-md focus:outline-none focus:ring-2 focus:ring-ring"
-              value={selectedExamId ?? ''}
-              onChange={(event) => setSelectedExamId(Number(event.target.value))}
-            >
-              <option value="" disabled>Select examination</option>
-              {examsQuery.data?.map((exam) => (
-                <option key={exam.exam_id} value={exam.exam_id}>
-                  {exam.exam_name}
-                </option>
-              ))}
-            </select>
+          <div className="w-full max-w-sm space-y-4">
+            <div>
+              <label className="text-sm font-semibold text-foreground">Select Examination</label>
+              <select
+                className="mt-2 min-h-11 w-full rounded-xl border border-white/55 bg-white/40 px-4 py-3 text-sm text-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.55)] backdrop-blur-md focus:outline-none focus:ring-2 focus:ring-ring"
+                value={selectedExamId ?? ''}
+                onChange={(event) => setSelectedExamId(Number(event.target.value))}
+              >
+                <option value="" disabled>Select examination</option>
+                {examsQuery.data?.map((exam) => (
+                  <option key={exam.exam_id} value={exam.exam_id}>
+                    {exam.exam_name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            
+            <div className="space-y-3 rounded-xl border border-white/45 bg-white/28 p-4 backdrop-blur-sm">
+              <label className="flex items-center space-x-3 cursor-pointer">
+                <input 
+                  type="checkbox" 
+                  checked={includesSpeciallyAbled} 
+                  onChange={(e) => setIncludesSpeciallyAbled(e.target.checked)}
+                  className="h-4 w-4 rounded border-white/60 bg-white/40 text-primary focus:ring-primary"
+                />
+                <span className="text-sm text-foreground">Includes Specially Abled (+1 Block per session)</span>
+              </label>
+              
+              <label className="flex items-center space-x-3 cursor-pointer">
+                <input 
+                  type="checkbox" 
+                  checked={includesMasters} 
+                  onChange={(e) => setIncludesMasters(e.target.checked)}
+                  className="h-4 w-4 rounded border-white/60 bg-white/40 text-primary focus:ring-primary"
+                />
+                <span className="text-sm text-foreground">Includes Masters (+2 Blocks per session)</span>
+              </label>
+            </div>
           </div>
         </div>
 
@@ -222,7 +291,7 @@ export default function AllocationPage() {
 
         <div className="mt-6">
           <Button
-            onClick={() => selectedExamId && allocationMutation.mutate(selectedExamId)}
+            onClick={() => selectedExamId && allocationMutation.mutate({ examId: selectedExamId, specificallyAbled: includesSpeciallyAbled, masters: includesMasters })}
             className="w-full"
             size="lg"
             disabled={!selectedExamId || allocationMutation.isPending}

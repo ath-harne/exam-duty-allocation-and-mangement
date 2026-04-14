@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Check, FileSpreadsheet, Upload, X } from 'lucide-react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Check, FileSpreadsheet, Search, Upload, X } from 'lucide-react';
 import { toast } from 'sonner';
-import { uploadFacultyFile } from '@/lib/api';
+import { getFaculties, toggleFacultyLeave, uploadFacultyFile } from '@/lib/api';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import {
   Table,
@@ -19,6 +20,23 @@ export default function FacultyUploadPage() {
   const queryClient = useQueryClient();
   const [dragActive, setDragActive] = useState(false);
   const [uploadResult, setUploadResult] = useState<FacultyUploadResponse | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const facultiesQuery = useQuery({
+    queryKey: ['faculties'],
+    queryFn: getFaculties,
+  });
+
+  const toggleLeaveMutation = useMutation({
+    mutationFn: ({ facultyId, isOnLeave }: { facultyId: number; isOnLeave: boolean }) =>
+      toggleFacultyLeave(facultyId, isOnLeave),
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ['faculties'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      toast.success(result.message);
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
 
   const mutation = useMutation({
     mutationFn: uploadFacultyFile,
@@ -40,6 +58,13 @@ export default function FacultyUploadPage() {
     }
     mutation.mutate(file);
   };
+
+  const facultiesData = Array.isArray(facultiesQuery.data) ? facultiesQuery.data : [];
+  const filteredFaculties = facultiesData.filter(f => 
+    f.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+    f.employee_code.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    f.dept_id.toLowerCase().includes(searchQuery.toLowerCase())
+  ) || [];
 
   return (
     <div className="space-y-6">
@@ -162,6 +187,72 @@ export default function FacultyUploadPage() {
           </section>
         </>
       )}
+
+      <section className="glass-card overflow-hidden mt-8">
+        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-white/35 px-6 py-5">
+          <div>
+            <h2 className="text-lg font-bold text-foreground">Faculty Leave Management</h2>
+            <p className="text-sm text-muted-foreground">Search and manage leave status for all faculty records.</p>
+          </div>
+          <div className="relative w-full max-w-sm">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Search by name, code, or department..."
+              className="pl-9 bg-white/40 border-white/55"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+        </div>
+
+        {facultiesQuery.isLoading ? (
+          <div className="p-6 text-sm text-muted-foreground">Loading faculties...</div>
+        ) : (
+          <div className="overflow-x-auto overflow-y-auto px-2 pb-2 max-h-[600px]">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Code</TableHead>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Department</TableHead>
+                  <TableHead>Designation</TableHead>
+                  <TableHead>Experience</TableHead>
+                  <TableHead>On Leave</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredFaculties.map((faculty) => (
+                  <TableRow key={faculty.faculty_id} className="border-white/30">
+                    <TableCell className="font-mono text-xs">{faculty.employee_code}</TableCell>
+                    <TableCell className="font-semibold">{faculty.name}</TableCell>
+                    <TableCell>{faculty.dept_id}</TableCell>
+                    <TableCell>{faculty.designation}</TableCell>
+                    <TableCell>{faculty.experience_years} yrs</TableCell>
+                    <TableCell>
+                      <label className="flex items-center space-x-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={faculty.is_on_leave}
+                          onChange={(e) => toggleLeaveMutation.mutate({ facultyId: faculty.faculty_id, isOnLeave: e.target.checked })}
+                          className="h-4 w-4 rounded border-white/60 bg-white/40 text-primary focus:ring-primary"
+                        />
+                        <span className="text-sm font-medium">{faculty.is_on_leave ? 'Yes' : 'No'}</span>
+                      </label>
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {filteredFaculties.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center py-6 text-muted-foreground">
+                      No faculty found matching your search.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </section>
     </div>
   );
 }

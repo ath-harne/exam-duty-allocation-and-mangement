@@ -1,9 +1,11 @@
 import { useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Download, FileCheck2 } from 'lucide-react';
-import { buildReportUrl, getExamResult, getExams } from '@/lib/api';
+import { toast } from 'sonner';
+import { buildReportUrl, getExamResult, getExams, updateAllocationFaculty } from '@/lib/api';
 import { Button } from '@/components/ui/button';
+import { FacultySwapCombobox } from '@/components/FacultySwapCombobox';
 import {
   Table,
   TableBody,
@@ -16,6 +18,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 export default function ResultsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const queryClient = useQueryClient();
   const examIdFromQuery = Number(searchParams.get('examId'));
 
   const examsQuery = useQuery({
@@ -32,6 +35,16 @@ export default function ResultsPage() {
     queryKey: ['exam-result', resolvedExamId],
     queryFn: () => getExamResult(resolvedExamId),
     enabled: !!resolvedExamId,
+  });
+
+  const swapMutation = useMutation({
+    mutationFn: ({ allocationId, newFacultyId }: { allocationId: number; newFacultyId: number }) =>
+      updateAllocationFaculty(allocationId, newFacultyId),
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ['exam-result', resolvedExamId] });
+      toast.success(result.message);
+    },
+    onError: (error: Error) => toast.error(error.message),
   });
 
   if (examsQuery.isLoading) {
@@ -156,9 +169,25 @@ export default function ResultsPage() {
                   </TableHeader>
                   <TableBody>
                     {session.junior_supervisors.map((item) => (
-                      <TableRow key={`${session.schedule_id}-${item.block_number}`} className="border-white/30">
-                        <TableCell className="font-bold">{item.block_number}</TableCell>
-                        <TableCell className="font-semibold">{item.faculty_name}</TableCell>
+                      <TableRow key={`${session.schedule_id}-${item.block_number ?? 'unassigned'}-${item.allocation_id}`} className="border-white/30">
+                        <TableCell className="font-bold">{item.block_number ?? 'Unassigned'}</TableCell>
+                        <TableCell className="w-[300px]">
+                          {item.allocation_id ? (
+                            <FacultySwapCombobox
+                              currentFacultyId={item.faculty_id}
+                              currentFacultyName={item.faculty_name}
+                              availableFaculties={(session.unallocated || []).map(f => ({
+                                faculty_id: f.faculty_id,
+                                faculty_name: f.faculty_name,
+                                employee_code: f.employee_code,
+                                dept_id: f.dept_id,
+                              }))}
+                              onSwap={(newFacultyId) => swapMutation.mutate({ allocationId: item.allocation_id!, newFacultyId })}
+                            />
+                          ) : (
+                            <span className="font-semibold">{item.faculty_name}</span>
+                          )}
+                        </TableCell>
                         <TableCell>{item.employee_code}</TableCell>
                         <TableCell>{item.dept_id}</TableCell>
                       </TableRow>
@@ -229,12 +258,31 @@ export default function ResultsPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {session.squads.map((squad) => (
-                      <TableRow key={`${session.schedule_id}-${squad.squad_number}`} className="border-white/30">
-                        <TableCell className="font-bold">{squad.squad_number}</TableCell>
-                        {[0, 1, 2].map((index) => (
-                          <TableCell key={index}>{squad.members[index]?.faculty_name ?? '-'}</TableCell>
-                        ))}
+                    {session.squads.map((squad, sIdx) => (
+                      <TableRow key={`${session.schedule_id}-squad-${squad.squad_number ?? sIdx}`} className="border-white/30">
+                        <TableCell className="font-bold">{squad.squad_number ?? 'Unassigned'}</TableCell>
+                        {[0, 1, 2].map((index) => {
+                          const member = squad.members[index];
+                          return (
+                            <TableCell key={index} className="w-[280px]">
+                              {member && member.allocation_id ? (
+                                <FacultySwapCombobox
+                                  currentFacultyId={member.faculty_id}
+                                  currentFacultyName={member.faculty_name}
+                                  availableFaculties={(session.unallocated || []).map(f => ({
+                                    faculty_id: f.faculty_id,
+                                    faculty_name: f.faculty_name,
+                                    employee_code: f.employee_code,
+                                    dept_id: f.dept_id,
+                                  }))}
+                                  onSwap={(newFacultyId) => swapMutation.mutate({ allocationId: member.allocation_id!, newFacultyId })}
+                                />
+                              ) : (
+                                member?.faculty_name ?? '-'
+                              )}
+                            </TableCell>
+                          );
+                        })}
                       </TableRow>
                     ))}
                   </TableBody>

@@ -21,6 +21,10 @@ const pageTitles: Record<string, { title: string; subtitle: string }> = {
     title: 'Allocation Results',
     subtitle: 'Review generated duties and download ready-to-share reports for the examination team.',
   },
+  daywise: {
+    title: 'Day-wise Allocation',
+    subtitle: 'Assign concrete block numbers and squad numbers for a specific day and shift.',
+  },
 };
 
 export default function DashboardLayout() {

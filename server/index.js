@@ -32,7 +32,7 @@ async function getExamResult(examId) {
 
   const [exam] = exams;
   const schedules = await query(
-    `SELECT schedule_id, subject_name, student_count, block_required, dept_id, exam_date, shift
+    `SELECT schedule_id, subject_name, student_count, block_required, dept_id, DATE_FORMAT(exam_date, '%Y-%m-%d') as exam_date, shift
      FROM exam_schedule
      WHERE exam_id = ?
      ORDER BY exam_date, shift, dept_id, subject_name`,
@@ -45,7 +45,7 @@ async function getExamResult(examId) {
        a.role,
        a.block_number,
        a.squad_number,
-       a.exam_date,
+       DATE_FORMAT(a.exam_date, '%Y-%m-%d') as exam_date,
        a.shift,
        a.schedule_id,
        f.faculty_id,
@@ -110,6 +110,7 @@ async function getExamResult(examId) {
     junior_supervisors: allocations
       .filter((row) => row.schedule_id === schedule.schedule_id && row.role === 'Jr_SV')
       .map((row) => ({
+        allocation_id: row.allocation_id,
         block: row.block_number,
         block_number: row.block_number,
         faculty_id: row.faculty_id,
@@ -121,6 +122,7 @@ async function getExamResult(examId) {
     jr_supervisors: allocations
       .filter((row) => row.schedule_id === schedule.schedule_id && row.role === 'Jr_SV')
       .map((row) => ({
+        allocation_id: row.allocation_id,
         block: row.block_number,
         block_number: row.block_number,
         faculty_id: row.faculty_id,
@@ -132,6 +134,7 @@ async function getExamResult(examId) {
     substitutes: allocations
       .filter((row) => row.schedule_id === schedule.schedule_id && row.role === 'Substitute')
       .map((row) => ({
+        allocation_id: row.allocation_id,
         faculty_id: row.faculty_id,
         faculty_name: row.faculty_name,
         name: row.faculty_name,
@@ -153,6 +156,7 @@ async function getExamResult(examId) {
             acc[key] = { squad_number: key, members: [] };
           }
           acc[key].members.push({
+            allocation_id: row.allocation_id,
             faculty_id: row.faculty_id,
             faculty_name: row.faculty_name,
             name: row.faculty_name,
@@ -286,6 +290,24 @@ app.post('/api/uploads/faculties', upload.single('file'), asyncHandler(async (re
   });
 }));
 
+app.get('/api/faculties', asyncHandler(async (_req, res) => {
+  const faculties = await query(
+    `SELECT faculty_id, employee_code, name, gender, dept_id, teaching_type, designation, qualification, date_of_joining, experience_years, is_on_leave
+     FROM faculties
+     ORDER BY name`
+  );
+  res.json(faculties);
+}));
+
+app.put('/api/faculties/:facultyId/leave', asyncHandler(async (req, res) => {
+  const facultyId = Number(req.params.facultyId);
+  const { isOnLeave } = req.body;
+  if (!facultyId) return res.status(400).json({ message: 'Invalid faculty ID' });
+
+  await query('UPDATE faculties SET is_on_leave = ? WHERE faculty_id = ?', [isOnLeave, facultyId]);
+  res.json({ message: 'Leave status updated successfully.' });
+}));
+
 app.post('/api/uploads/schedules', upload.single('file'), asyncHandler(async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ message: 'Exam schedule Excel file is required.' });
@@ -337,9 +359,44 @@ app.post('/api/uploads/schedules', upload.single('file'), asyncHandler(async (re
     preview: scheduleRows.slice(0, 10),
   });
 }));
+app.get('/api/exams/:examId/schedules', asyncHandler(async (req, res) => {
+  const schedules = await query(
+    `SELECT schedule_id, exam_id, subject_name, student_count, block_required, dept_id, DATE_FORMAT(exam_date, '%Y-%m-%d') as exam_date, shift 
+     FROM exam_schedule 
+     WHERE exam_id = ? 
+     ORDER BY exam_date, shift, dept_id, subject_name`,
+    [Number(req.params.examId)]
+  );
+  res.json(schedules);
+}));
+
+app.put('/api/schedules/:scheduleId', asyncHandler(async (req, res) => {
+  const scheduleId = Number(req.params.scheduleId);
+  const { block_required, student_count } = req.body;
+
+  if (!scheduleId || block_required === undefined) {
+    return res.status(400).json({ message: 'Schedule ID and block_required are required.' });
+  }
+
+  await query(
+    'UPDATE exam_schedule SET block_required = ?, student_count = ? WHERE schedule_id = ?',
+    [block_required, student_count ?? null, scheduleId]
+  );
+
+  // Update total blocks for the exam
+  const [schedule] = await query('SELECT exam_id FROM exam_schedule WHERE schedule_id = ?', [scheduleId]);
+  if (schedule) {
+    const [rows] = await query('SELECT SUM(block_required) as total FROM exam_schedule WHERE exam_id = ?', [schedule.exam_id]);
+    await query('UPDATE exams SET total_blocks = ? WHERE exam_id = ?', [rows.total || 0, schedule.exam_id]);
+  }
+
+  res.json({ message: 'Schedule updated successfully.' });
+}));
 
 app.post('/api/allocations/run', asyncHandler(async (req, res) => {
   const examId = Number(req.body.examId);
+  const includesSpeciallyAbled = Boolean(req.body.includesSpeciallyAbled);
+  const includesMasters = Boolean(req.body.includesMasters);
   if (!examId) {
     return res.status(400).json({ message: 'examId is required.' });
   }
@@ -411,7 +468,7 @@ app.post('/api/allocations/run', asyncHandler(async (req, res) => {
     );
     const [counterRows] = await connection.query('SELECT * FROM fairness_counter');
     const [scheduleRows] = await connection.query(
-      `SELECT schedule_id, exam_id, subject_name, student_count, block_required, dept_id, exam_date, shift
+      `SELECT schedule_id, exam_id, subject_name, student_count, block_required, dept_id, DATE_FORMAT(exam_date, '%Y-%m-%d') as exam_date, shift
        FROM exam_schedule
        WHERE exam_id = ?
        ORDER BY exam_date, shift, dept_id, subject_name`,
@@ -424,6 +481,8 @@ app.post('/api/allocations/run', asyncHandler(async (req, res) => {
       schedules: scheduleRows,
       examId,
       examName: examRows[0].exam_name,
+      includesSpeciallyAbled,
+      includesMasters,
     });
 
     for (const item of generated.allocations) {
@@ -564,6 +623,57 @@ app.get('/api/exams/:examId/reports/unallocated.pdf', asyncHandler(async (req, r
   streamUnallocatedPdf(res, result.exam, result.unallocated);
 }));
 
+app.put('/api/allocations/:allocationId', asyncHandler(async (req, res) => {
+  const allocationId = Number(req.params.allocationId);
+  const { newFacultyId } = req.body;
+  if (!allocationId || !newFacultyId) {
+    return res.status(400).json({ message: 'Allocation ID and new Faculty ID are required.' });
+  }
+
+  await query('UPDATE allocations SET faculty_id = ? WHERE allocation_id = ?', [newFacultyId, allocationId]);
+  res.json({ message: 'Allocation updated successfully.' });
+}));
+
+app.put('/api/allocations/:allocationId/block', asyncHandler(async (req, res) => {
+  const allocationId = Number(req.params.allocationId);
+  const { blockNumber, squadNumber } = req.body;
+  if (!allocationId) {
+    return res.status(400).json({ message: 'Allocation ID is required.' });
+  }
+
+  await query(
+    'UPDATE allocations SET block_number = ?, squad_number = ? WHERE allocation_id = ?',
+    [blockNumber ?? null, squadNumber ?? null, allocationId]
+  );
+  res.json({ message: 'Block assignment updated successfully.' });
+}));
+
+app.get('/api/allocations/daywise', asyncHandler(async (req, res) => {
+  const { examId, date, shift } = req.query;
+  if (!examId || !date || !shift) {
+    return res.status(400).json({ message: 'examId, date, and shift are required.' });
+  }
+
+  const allocations = await query(
+    `SELECT
+       a.allocation_id,
+       a.role,
+       a.block_number,
+       a.squad_number,
+       a.schedule_id,
+       f.faculty_id,
+       f.employee_code,
+       f.name AS faculty_name,
+       f.dept_id
+     FROM allocations a
+     INNER JOIN faculties f ON f.faculty_id = a.faculty_id
+     WHERE a.exam_id = ? AND a.exam_date = ? AND a.shift = ? AND a.role IN ('Jr_SV', 'Squad')
+     ORDER BY a.role, f.name`,
+    [Number(examId), date, shift]
+  );
+  res.json(allocations);
+}));
+
 app.use((error, _req, res, _next) => {
   res.status(error.statusCode ?? 500).json({
     message: error.message ?? 'Unexpected server error.',
@@ -580,3 +690,5 @@ initDatabase()
     console.error('Failed to start server:', error);
     process.exit(1);
   });
+
+console.log("END OF FILE");

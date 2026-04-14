@@ -28,6 +28,7 @@ const navItems = [
   { title: 'Faculty Records', url: '/dashboard/faculty-upload', icon: Upload },
   { title: 'Duty Allocation', url: '/dashboard/allocation', icon: Settings },
   { title: 'Results', url: '/dashboard/results', icon: FileSpreadsheet },
+  { title: 'Day-wise Mapping', url: '/dashboard/daywise', icon: LayoutDashboard },
 ];
 
 export function AppSidebar() {
