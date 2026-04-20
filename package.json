@@ -49,6 +49,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
+    "compress-commons": "^7.0.0",
     "cors": "^2.8.6",
     "date-fns": "^3.6.0",
     "dotenv": "^17.4.0",
@@ -96,8 +97,7 @@
     "vite": "^8.0.8",
     "vitest": "^3.2.4"
   },
-  
   "engines": {
-  "node": "18.x"
-}
+    "node": "18.x"
+  }
 }

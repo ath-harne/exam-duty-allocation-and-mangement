@@ -79,8 +79,27 @@ async function migrateSchema() {
   }
 
   await pool.query(
-    "ALTER TABLE allocations MODIFY COLUMN role ENUM('Jr_SV', 'Substitute', 'Sr_SV', 'Squad') NOT NULL"
+    "ALTER TABLE allocations MODIFY COLUMN role ENUM('Jr_SV', 'Substitute', 'Sr_SV', 'Squad', 'Overall_Substitute') NOT NULL"
   );
+
+  await pool.query("ALTER TABLE allocations MODIFY COLUMN exam_date DATE NULL");
+  await pool.query("ALTER TABLE allocations MODIFY COLUMN shift ENUM('M', 'E') NULL");
+
+  const [tableExists] = await pool.query(
+    `SELECT 1 FROM information_schema.TABLES WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'dept_block_rules' LIMIT 1`,
+    [databaseConfig.database]
+  );
+  if (tableExists.length === 0) {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS dept_block_rules (
+        rule_id INT AUTO_INCREMENT PRIMARY KEY,
+        dept_id VARCHAR(32) NOT NULL,
+        start_block INT NOT NULL,
+        end_block INT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+  }
 }
 
 export async function initDatabase() {

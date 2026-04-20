@@ -17,6 +17,10 @@ const pageTitles: Record<string, { title: string; subtitle: string }> = {
     title: 'Duty Allocation',
     subtitle: 'Prepare examination schedules and generate balanced duty assignments for review.',
   },
+  'block-assignment': {
+    title: 'Block Assignment',
+    subtitle: 'Assign specific block numbers to Junior Supervisors for each session, with department conflict checks.',
+  },
   results: {
     title: 'Allocation Results',
     subtitle: 'Review generated duties and download ready-to-share reports for the examination team.',

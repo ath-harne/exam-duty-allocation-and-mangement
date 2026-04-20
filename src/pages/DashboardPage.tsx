@@ -15,6 +15,7 @@ import {
 const statCards = [
   { key: 'total_faculties', label: 'Total Faculty', icon: Users, accent: 'bg-sky-100 text-sky-700' },
   { key: 'available_faculties', label: 'Available Faculty', icon: BookOpen, accent: 'bg-emerald-100 text-emerald-700' },
+  { key: 'on_leave_count', label: 'On Leave', icon: Users, accent: 'bg-rose-100 text-rose-700' },
   { key: 'total_blocks', label: 'Scheduled Blocks', icon: LayoutGrid, accent: 'bg-amber-100 text-amber-700' },
   { key: 'total_allocations', label: 'Allocated Duties', icon: CheckCircle2, accent: 'bg-cyan-100 text-cyan-700' },
 ] as const;
@@ -36,6 +37,7 @@ export default function DashboardPage() {
   const stats = {
     total_faculties: data.faculty.total_faculties,
     available_faculties: data.faculty.available_faculties,
+    on_leave_count: data.faculty.on_leave_count,
     total_blocks: data.schedule.total_blocks,
     total_allocations: data.allocations.total_allocations,
   };
@@ -62,7 +64,7 @@ export default function DashboardPage() {
         </div>
       </section>
 
-      <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
         {statCards.map(({ key, label, icon: Icon, accent }) => (
           <div key={key} className="metric-card">
             <div className="flex items-start justify-between gap-4">

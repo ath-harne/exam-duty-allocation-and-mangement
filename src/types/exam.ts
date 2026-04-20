@@ -17,6 +17,13 @@ export interface FacultyUploadResponse {
   preview: FacultyPreview[];
 }
 
+export interface DeptBlockRule {
+  rule_id: number;
+  dept_id: string;
+  start_block: number;
+  end_block: number;
+}
+
 export interface SchedulePreview {
   student_count: number;
   subject_name: string;
@@ -49,6 +56,7 @@ export interface DashboardResponse {
     total_faculties: number;
     available_faculties: number;
     faculty_on_leave: number;
+    on_leave_count: number;
   };
   schedule: {
     total_schedules: number;

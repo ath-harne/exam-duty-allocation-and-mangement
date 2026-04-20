@@ -61,3 +61,11 @@ CREATE TABLE IF NOT EXISTS allocations (
   CONSTRAINT fk_alloc_schedule FOREIGN KEY (schedule_id) REFERENCES exam_schedule(schedule_id) ON DELETE CASCADE,
   CONSTRAINT fk_alloc_faculty FOREIGN KEY (faculty_id) REFERENCES faculties(faculty_id) ON DELETE CASCADE
 );
+
+CREATE TABLE IF NOT EXISTS dept_block_rules (
+  rule_id INT AUTO_INCREMENT PRIMARY KEY,
+  dept_id VARCHAR(32) NOT NULL,
+  start_block INT NOT NULL,
+  end_block INT NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);

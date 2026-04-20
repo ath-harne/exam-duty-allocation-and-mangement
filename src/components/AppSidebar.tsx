@@ -2,6 +2,7 @@ import {
   FileSpreadsheet,
   GraduationCap,
   LayoutDashboard,
+  LayoutGrid,
   LogOut,
   Settings,
   Upload,
@@ -27,6 +28,8 @@ const navItems = [
   { title: 'Dashboard', url: '/dashboard', icon: LayoutDashboard },
   { title: 'Faculty Records', url: '/dashboard/faculty-upload', icon: Upload },
   { title: 'Duty Allocation', url: '/dashboard/allocation', icon: Settings },
+  { title: 'Block Rules', url: '/dashboard/dept-block-rules', icon: FileSpreadsheet },
+  { title: 'Block Assignment', url: '/dashboard/block-assignment', icon: LayoutGrid },
   { title: 'Results', url: '/dashboard/results', icon: FileSpreadsheet },
 ];
 
