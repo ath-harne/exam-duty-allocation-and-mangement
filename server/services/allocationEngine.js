@@ -481,7 +481,8 @@ export function generateAllocation(timetable, facultyData, options = {}) {
     examName = '',
   } = options;
 
-  const activeFaculties = facultyData.filter((faculty) => !faculty.is_on_leave);
+  const safeFacultyData = Array.isArray(facultyData) ? facultyData : [];
+  const activeFaculties = safeFacultyData.filter((faculty) => !faculty.is_on_leave);
   const normalizedSchedules = normalizeSchedules(timetable);
   const totalStudents = normalizedSchedules.reduce((sum, schedule) => sum + schedule.student_count, 0);
   const counterMap = createCounterMap(fairnessCounters);

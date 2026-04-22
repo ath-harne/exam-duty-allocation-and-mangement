@@ -1,13 +1,14 @@
 import type {
   AllocationRunResponse,
   DashboardResponse,
+  DaywiseAllocation,
   ExamListItem,
   ExamResultResponse,
   FacultyUploadResponse,
   ScheduleUploadResponse,
 } from '@/types/exam';
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL ?? '/api';
+const API_BASE = '/api';
 
 async function parseResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {
@@ -47,13 +48,13 @@ export async function uploadScheduleFile(examName: string, file: File) {
   }));
 }
 
-export async function runAllocation(examId: number) {
+export async function runAllocation(examId: number, extraBlocks = 0) {
   return parseResponse<AllocationRunResponse>(await fetch(`${API_BASE}/allocations/run`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ examId }),
+    body: JSON.stringify({ examId, extraBlocks }),
   }));
 }
 
@@ -63,4 +64,26 @@ export async function getExamResult(examId: number) {
 
 export function buildReportUrl(examId: number, report: 'excel/junior-supervisors' | 'excel/squads' | 'excel/senior-supervisors' | 'junior-supervisors.pdf' | 'squads.pdf' | 'senior-supervisors.pdf' | 'unallocated.pdf') {
   return `${API_BASE}/exams/${examId}/reports/${report}`;
+}
+
+export async function getDaywiseAllocations(examId: number, examDate: string, shift: string) {
+  return parseResponse<DaywiseAllocation[]>(
+    await fetch(`${API_BASE}/exams/${examId}/daywise-allocations?examDate=${encodeURIComponent(examDate)}&shift=${encodeURIComponent(shift)}`)
+  );
+}
+
+export async function getExamScheduleDates(examId: number) {
+  return parseResponse<{ exam_date: string; shift: string }[]>(
+    await fetch(`${API_BASE}/exams/${examId}/schedule-dates`)
+  );
+}
+
+export async function updateAllocationBlock(allocationId: number, blockNumber: number | null, squadNumber: number | null) {
+  return parseResponse<{ message: string }>(
+    await fetch(`${API_BASE}/allocations/${allocationId}/block`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ block_number: blockNumber, squad_number: squadNumber }),
+    })
+  );
 }

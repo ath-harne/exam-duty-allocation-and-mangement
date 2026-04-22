@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { uploadFacultyFile } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Table,
   TableBody,
@@ -13,17 +14,19 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import type { FacultyUploadResponse } from '@/types/exam';
+import type { FacultyPreview, FacultyUploadResponse } from '@/types/exam';
 
 export default function FacultyUploadPage() {
   const queryClient = useQueryClient();
   const [dragActive, setDragActive] = useState(false);
   const [uploadResult, setUploadResult] = useState<FacultyUploadResponse | null>(null);
+  const [previewRows, setPreviewRows] = useState<FacultyPreview[]>([]);
 
   const mutation = useMutation({
     mutationFn: uploadFacultyFile,
     onSuccess: (result) => {
       setUploadResult(result);
+      setPreviewRows(result.preview);
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       toast.success(result.message);
     },
@@ -115,7 +118,10 @@ export default function FacultyUploadPage() {
                   <p className="text-sm text-muted-foreground">Review a sample of the updated faculty records.</p>
                 </div>
               </div>
-              <Button variant="outline" size="sm" onClick={() => setUploadResult(null)}>
+              <Button variant="outline" size="sm" onClick={() => {
+                setUploadResult(null);
+                setPreviewRows([]);
+              }}>
                 <X className="mr-1 h-4 w-4" />
                 Close Preview
               </Button>
@@ -125,19 +131,20 @@ export default function FacultyUploadPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Code</TableHead>
+                    <TableHead>EMP ID</TableHead>
                     <TableHead>Name</TableHead>
                     <TableHead>Gender</TableHead>
                     <TableHead>Department</TableHead>
-                    <TableHead>Role Type</TableHead>
+                    {/* <TableHead>Type</TableHead> */}
+                    <TableHead>Designation</TableHead>
                     <TableHead>Qualification</TableHead>
                     <TableHead>Date of Joining</TableHead>
                     <TableHead>Experience</TableHead>
-                    <TableHead>Leave Status</TableHead>
+                    <TableHead>Leave</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {uploadResult.preview.map((faculty) => (
+                  {previewRows.map((faculty) => (
                     <TableRow key={faculty.employee_code} className="border-white/30">
                       <TableCell className="font-mono text-xs">{faculty.employee_code}</TableCell>
                       <TableCell className="font-semibold">{faculty.name}</TableCell>
@@ -152,7 +159,19 @@ export default function FacultyUploadPage() {
                       <TableCell>{faculty.date_of_joining || 'N/A'}</TableCell>
                       <TableCell>{faculty.experience_years} yrs</TableCell>
                       <TableCell>
-                        {faculty.is_on_leave ? <X className="h-4 w-4 text-destructive" /> : <Check className="h-4 w-4 text-success" />}
+                        <Checkbox
+                          checked={faculty.is_on_leave}
+                          onCheckedChange={(value) => {
+                            setPreviewRows((current) =>
+                              current.map((row) =>
+                                row.employee_code === faculty.employee_code
+                                  ? { ...row, is_on_lSeave: Boolean(value) }
+                                  : row
+                              )
+                            );
+                          }}
+                          aria-label={faculty.is_on_leave ? 'On leave' : 'Available'}
+                        />
                       </TableCell>
                     </TableRow>
                   ))}

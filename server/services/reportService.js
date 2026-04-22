@@ -107,11 +107,26 @@ function renderUnallocatedPdf(doc, title, subtitle, rows) {
   }
 }
 
-export async function buildMatrixExcelReport(title, exam, detailedRows, role) {
+export async function buildMatrixExcelReport(exam, detailedRows, role) {
   const workbook = new ExcelJS.Workbook();
   const sheet = workbook.addWorksheet('Duty Schedule');
 
-  const grouped = groupByFacultyAndSlot(detailedRows, role);
+  const title = role === 'junior'
+    ? 'Junior Supervisor Duty List'
+    : role === 'senior'
+      ? 'Senior Supervisor Duty List'
+      : role === 'squad'
+        ? 'Squad Duty List'
+        : 'Duty Schedule';
+
+  const roleMapping = {
+    junior: 'Jr_SV',
+    senior: 'Sr_SV',
+    squad: 'Squad',
+  };
+
+  const resolvedRole = roleMapping[role] ?? role;
+  const grouped = groupByFacultyAndSlot(detailedRows, resolvedRole);
   
   const datesMap = new Map();
   for (const slot of grouped.slots) {

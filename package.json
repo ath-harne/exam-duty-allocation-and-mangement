@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev-full": "concurrently \"npm run server\" \"npm run dev\"",
     "server": "node server/index.js",
     "server:dev": "node --watch server/index.js",
     "build": "vite build",
@@ -13,7 +14,7 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "start": "node server.js"
+    "start": "node server/index.js"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
@@ -96,8 +97,7 @@
     "vite": "^8.0.8",
     "vitest": "^3.2.4"
   },
-  
   "engines": {
-  "node": "18.x"
-}
+    "node": "18.x"
+  }
 }

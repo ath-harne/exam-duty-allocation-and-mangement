@@ -10,40 +10,55 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const schemaPath = path.join(__dirname, "db", "schema.sql");
 
-// ❗ REMOVE FALLBACKS (VERY IMPORTANT)
-const databaseConfig = {
-  host: process.env.DB_HOST,
-  port: Number(process.env.DB_PORT || 3306),
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
-  ssl: process.env.DB_SSL === "true" ? { rejectUnauthorized: false } : undefined,
-};
+// Supports DATABASE_URL (Railway/PlanetScale) or individual DB_* vars
+function buildPoolConfig() {
+  if (process.env.DATABASE_URL) {
+    // mysql2 accepts `uri` as a top-level key in createPool
+    return {
+      uri: process.env.DATABASE_URL,
+      waitForConnections: true,
+      connectionLimit: 10,
+      queueLimit: 0,
+      multipleStatements: true,
+      decimalNumbers: true,
+      ssl: { rejectUnauthorized: false },
+    };
+  }
 
-if (!databaseConfig.host) {
-  throw new Error("❌ DB_HOST is missing. Set environment variables in Render.");
+  if (!process.env.DB_HOST) {
+    throw new Error(
+      "❌ DB_HOST (or DATABASE_URL) is missing. Set environment variables in Render."
+    );
+  }
+
+  return {
+    host: process.env.DB_HOST,
+    port: Number(process.env.DB_PORT || 3306),
+    user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    database: process.env.DB_NAME,
+    ssl: process.env.DB_SSL === "true" ? { rejectUnauthorized: false } : undefined,
+    waitForConnections: true,
+    connectionLimit: 10,
+    queueLimit: 0,
+    multipleStatements: true,
+    decimalNumbers: true,
+  };
 }
 
-// ✅ Create pool
-const pool = mysql.createPool({
-  ...databaseConfig,
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0,
-  multipleStatements: true,
-  decimalNumbers: true,
-});
+const poolConfig = buildPoolConfig();
+const pool = mysql.createPool(poolConfig);
 
-// ✅ Retry connection (VERY IMPORTANT for Render cold start)
-async function waitForDB(retries = 5) {
-  while (retries) {
+// Retry until DB is reachable (important for cloud cold starts)
+async function waitForDB(retries = 10) {
+  while (retries > 0) {
     try {
       const conn = await pool.getConnection();
       conn.release();
       console.log("✅ Database connected");
       return;
     } catch (err) {
-      console.log("⏳ Waiting for DB...", retries);
+      console.log(`⏳ Waiting for DB... (${retries} retries left) — ${err.message}`);
       retries--;
       await new Promise((res) => setTimeout(res, 5000));
     }
@@ -51,58 +66,82 @@ async function waitForDB(retries = 5) {
   throw new Error("❌ Could not connect to DB after retries");
 }
 
-async function columnExists(connection, tableName, columnName) {
-  const [rows] = await connection.query(
+// Resolve DB name for information_schema queries
+function resolveDbName() {
+  if (process.env.DB_NAME) return process.env.DB_NAME;
+  if (process.env.DATABASE_URL) {
+    const match = process.env.DATABASE_URL.match(/\/([^/?]+)(\?|$)/);
+    return match ? match[1] : null;
+  }
+  return null;
+}
+
+async function columnExists(tableName, columnName) {
+  const dbName = resolveDbName();
+  if (!dbName) return false; // skip migration check if we can't resolve DB name
+
+  const [rows] = await pool.query(
     `SELECT 1
      FROM information_schema.COLUMNS
      WHERE TABLE_SCHEMA = ?
        AND TABLE_NAME = ?
        AND COLUMN_NAME = ?
      LIMIT 1`,
-    [databaseConfig.database, tableName, columnName]
+    [dbName, tableName, columnName]
   );
-
   return rows.length > 0;
 }
 
 async function migrateSchema() {
-  if (!(await columnExists(pool, "fairness_counter", "last_allocated_term"))) {
-    await pool.query(
-      "ALTER TABLE fairness_counter ADD COLUMN last_allocated_term VARCHAR(255) NULL AFTER total_allocations"
-    );
+  try {
+    if (!(await columnExists("fairness_counter", "last_allocated_term"))) {
+      await pool.query(
+        "ALTER TABLE fairness_counter ADD COLUMN last_allocated_term VARCHAR(255) NULL AFTER total_allocations"
+      );
+    }
+  } catch (e) {
+    console.warn("⚠️ Migration skip (fairness_counter.last_allocated_term):", e.message);
   }
 
-  if (!(await columnExists(pool, "exam_schedule", "student_count"))) {
-    await pool.query(
-      "ALTER TABLE exam_schedule ADD COLUMN student_count INT NOT NULL DEFAULT 0 AFTER subject_name"
-    );
+  try {
+    if (!(await columnExists("exam_schedule", "student_count"))) {
+      await pool.query(
+        "ALTER TABLE exam_schedule ADD COLUMN student_count INT NOT NULL DEFAULT 0 AFTER subject_name"
+      );
+    }
+  } catch (e) {
+    console.warn("⚠️ Migration skip (exam_schedule.student_count):", e.message);
   }
 
-  await pool.query(
-    "ALTER TABLE allocations MODIFY COLUMN role ENUM('Jr_SV', 'Substitute', 'Sr_SV', 'Squad') NOT NULL"
-  );
+  try {
+    await pool.query(
+      "ALTER TABLE allocations MODIFY COLUMN role ENUM('Jr_SV', 'Substitute', 'Sr_SV', 'Squad') NOT NULL"
+    );
+  } catch (e) {
+    console.warn("⚠️ Migration skip (allocations.role):", e.message);
+  }
 }
 
 export async function initDatabase() {
-  await waitForDB(); // ✅ ensure DB is ready
+  await waitForDB();
 
-  const bootstrapConnection = await mysql.createConnection({
-    host: databaseConfig.host,
-    port: databaseConfig.port,
-    user: databaseConfig.user,
-    password: databaseConfig.password,
-    ssl: databaseConfig.ssl,
-    multipleStatements: true,
-  });
+  // Only create the database when using individual params — cloud DBs pre-create it
+  if (!process.env.DATABASE_URL) {
+    const bootstrap = await mysql.createConnection({
+      host: poolConfig.host,
+      port: poolConfig.port,
+      user: poolConfig.user,
+      password: poolConfig.password,
+      ssl: poolConfig.ssl,
+      multipleStatements: true,
+    });
+    await bootstrap.query(
+      `CREATE DATABASE IF NOT EXISTS \`${poolConfig.database}\``
+    );
+    await bootstrap.end();
+  }
 
   const schemaSql = await fs.readFile(schemaPath, "utf8");
-
-  await bootstrapConnection.query(
-    `CREATE DATABASE IF NOT EXISTS \`${databaseConfig.database}\``
-  );
-
-  await bootstrapConnection.end();
-
   await pool.query(schemaSql);
   await migrateSchema();
 
@@ -116,7 +155,6 @@ export async function query(sql, params = []) {
 
 export async function withTransaction(callback) {
   const connection = await pool.getConnection();
-
   try {
     await connection.beginTransaction();
     const result = await callback(connection);

@@ -5,6 +5,7 @@ import { Calculator, FileSpreadsheet, LayoutGrid, Play, Upload } from 'lucide-re
 import { toast } from 'sonner';
 import { getExams, runAllocation, uploadScheduleFile } from '@/lib/api';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import {
   Table,
@@ -22,6 +23,8 @@ export default function AllocationPage() {
   const [examName, setExamName] = useState('');
   const [schedulePreview, setSchedulePreview] = useState<ScheduleUploadResponse | null>(null);
   const [selectedExamId, setSelectedExamId] = useState<number | null>(null);
+  const [includePwdBlock, setIncludePwdBlock] = useState(false);
+  const [includeMastersBlock, setIncludeMastersBlock] = useState(false);
 
   const examsQuery = useQuery({
     queryKey: ['exams'],
@@ -50,7 +53,7 @@ export default function AllocationPage() {
   });
 
   const allocationMutation = useMutation({
-    mutationFn: runAllocation,
+    mutationFn: ({ examId, extraBlocks }: { examId: number; extraBlocks: number }) => runAllocation(examId, extraBlocks),
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       queryClient.invalidateQueries({ queryKey: ['exams'] });
@@ -80,6 +83,7 @@ export default function AllocationPage() {
     uploadMutation.mutate({ name: examName.trim(), file });
   };
 
+  const additionalBlockCount = Number(includePwdBlock) + Number(includeMastersBlock);
   const selectedExam = examsQuery.data?.find((exam) => exam.exam_id === selectedExamId) ?? null;
 
   return (
@@ -139,8 +143,10 @@ export default function AllocationPage() {
           <section className="grid gap-4 md:grid-cols-3">
             <div className="metric-card">
               <LayoutGrid className="h-5 w-5 text-primary" />
-              <p className="mt-4 text-4xl font-extrabold text-foreground">{schedulePreview.total_blocks}</p>
-              <p className="mt-2 text-sm text-muted-foreground">Total blocks required for this examination.</p>
+              <p className="mt-4 text-4xl font-extrabold text-foreground">{schedulePreview.total_blocks + additionalBlockCount}</p>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Total blocks required for this examination{additionalBlockCount > 0 ? `, including ${additionalBlockCount} extra` : ''}.
+              </p>
             </div>
             <div className="metric-card">
               <Calculator className="h-5 w-5 text-primary" />
@@ -216,13 +222,39 @@ export default function AllocationPage() {
 
         {selectedExam && (
           <div className="mt-5 rounded-2xl border border-white/45 bg-white/32 px-4 py-4 text-sm leading-7 text-muted-foreground backdrop-blur-md">
-            This examination includes {selectedExam.total_schedules} schedule entries and {selectedExam.total_blocks} blocks. It was created on {new Date(selectedExam.created_at).toLocaleString()}.
+            This examination includes {selectedExam.total_schedules} schedule entries and {selectedExam.total_blocks} blocks.
+            {additionalBlockCount > 0 ? ` + ${additionalBlockCount} extra block${additionalBlockCount > 1 ? 's' : ''} added for selected options.` : ''}
+            It was created on {new Date(selectedExam.created_at).toLocaleString()}.
           </div>
         )}
 
+        <div className="mt-6 grid gap-4 sm:grid-cols-2">
+          <label className="inline-flex cursor-pointer items-center justify-between rounded-2xl border border-white/35 bg-white/35 px-4 py-4 text-sm text-foreground shadow-sm transition hover:bg-white/45">
+            <span>
+              <span className="font-semibold">PWD students</span>
+              <span className="block text-xs text-muted-foreground">Add 1 extra block</span>
+            </span>
+            <Checkbox
+              checked={includePwdBlock}
+              onCheckedChange={(value) => setIncludePwdBlock(Boolean(value))}
+            />
+          </label>
+
+          <label className="inline-flex cursor-pointer items-center justify-between rounded-2xl border border-white/35 bg-white/35 px-4 py-4 text-sm text-foreground shadow-sm transition hover:bg-white/45">
+            <span>
+              <span className="font-semibold">Masters</span>
+              <span className="block text-xs text-muted-foreground">Add 1 extra block</span>
+            </span>
+            <Checkbox
+              checked={includeMastersBlock}
+              onCheckedChange={(value) => setIncludeMastersBlock(Boolean(value))}
+            />
+          </label>
+        </div>
+
         <div className="mt-6">
           <Button
-            onClick={() => selectedExamId && allocationMutation.mutate(selectedExamId)}
+            onClick={() => selectedExamId && allocationMutation.mutate({ examId: selectedExamId, extraBlocks: additionalBlockCount })}
             className="w-full"
             size="lg"
             disabled={!selectedExamId || allocationMutation.isPending}

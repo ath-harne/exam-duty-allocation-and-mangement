@@ -10,6 +10,7 @@ import DashboardPage from "./pages/DashboardPage";
 import FacultyUploadPage from "./pages/FacultyUploadPage";
 import AllocationPage from "./pages/AllocationPage";
 import ResultsPage from "./pages/ResultsPage";
+import DaywiseAllocationPage from "./pages/DaywiseAllocationPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -27,6 +28,7 @@ const App = () => (
               <Route index element={<DashboardPage />} />
               <Route path="faculty-upload" element={<FacultyUploadPage />} />
               <Route path="allocation" element={<AllocationPage />} />
+              <Route path="daywise-allocation" element={<DaywiseAllocationPage />} />
               <Route path="results" element={<ResultsPage />} />
             </Route>
             <Route path="*" element={<NotFound />} />
