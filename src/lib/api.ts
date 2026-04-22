@@ -48,13 +48,23 @@ export async function uploadScheduleFile(examName: string, file: File) {
   }));
 }
 
-export async function runAllocation(examId: number, extraBlocks = 0) {
+export interface DeptBlockRange {
+  dept_id: string;
+  block_from: number;
+  block_to: number;
+}
+
+export async function runAllocation(
+  examId: number,
+  extraBlocks = 0,
+  deptBlockMapping: DeptBlockRange[] = [],
+) {
   return parseResponse<AllocationRunResponse>(await fetch(`${API_BASE}/allocations/run`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ examId, extraBlocks }),
+    body: JSON.stringify({ examId, extraBlocks, deptBlockMapping }),
   }));
 }
 

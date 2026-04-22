@@ -28,8 +28,8 @@ const navItems = [
   { title: 'Dashboard', url: '/dashboard', icon: LayoutDashboard },
   { title: 'Faculty Records', url: '/dashboard/faculty-upload', icon: Upload },
   { title: 'Duty Allocation', url: '/dashboard/allocation', icon: Settings },
-  { title: 'Day-wise Mapping', url: '/dashboard/daywise-allocation', icon: Calendar },
   { title: 'Results', url: '/dashboard/results', icon: FileSpreadsheet },
+  { title: 'Day-wise Mapping', url: '/dashboard/daywise-allocation', icon: Calendar },
 ];
 
 export function AppSidebar() {

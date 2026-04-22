@@ -262,6 +262,61 @@ function getAvailableCandidates(faculties, sessionUsedFacultyIds, globallyReserv
   });
 }
 
+/**
+ * Build a block-number iterator for a session respecting dept block ranges.
+ * Returns a function: (faculty) => nextBlockNumber | null
+ *
+ * Strategy:
+ *  - If deptBlockRanges has an entry for faculty.dept_id, assign the next
+ *    available block within [block_from, block_to] for that dept.
+ *  - If a dept's range is exhausted, fall back to sequential from the global counter.
+ *  - Faculty with no configured range always use the global sequential counter.
+ */
+function buildBlockAssigner(blockCount, deptBlockRanges) {
+  // Map: dept_id -> { from, to, next }
+  const rangeMap = new Map();
+  for (const r of deptBlockRanges) {
+    rangeMap.set(r.dept_id, { from: r.block_from, to: r.block_to, next: r.block_from });
+  }
+
+  // A set of all block numbers consumed by dept-range assignments
+  const usedByRange = new Set();
+
+  // Global sequential pointer for unmapped depts (skips over range-reserved blocks)
+  let globalNext = 1;
+  const nextGlobal = () => {
+    while (globalNext <= blockCount) {
+      // Skip blocks already pre-reserved by any dept range
+      let reservedByAnyRange = false;
+      for (const r of rangeMap.values()) {
+        if (globalNext >= r.from && globalNext <= r.to) {
+          reservedByAnyRange = true;
+          break;
+        }
+      }
+      if (!reservedByAnyRange && !usedByRange.has(globalNext)) {
+        return globalNext++;
+      }
+      globalNext++;
+    }
+    return null; // exhausted
+  };
+
+  return (faculty) => {
+    const range = rangeMap.get(faculty.dept_id);
+    if (range) {
+      if (range.next <= range.to) {
+        const blockNum = range.next;
+        range.next++;
+        usedByRange.add(blockNum);
+        return blockNum;
+      }
+      // Range exhausted — fall through to global
+    }
+    return nextGlobal();
+  };
+}
+
 // Allocates Junior Supervisors: 1 per block.
 // Uses sessionUsedFacultyIds directly (no copy) so picks are visible to all subsequent allocators.
 function allocateJuniorSupervisors({
@@ -276,41 +331,46 @@ function allocateJuniorSupervisors({
   termLabel,
   scheduleDeptId,
   totalDepartments,
+  deptBlockRanges,
 }) {
   const deptCounters = new Map();
   const maxPerDept = totalDepartments > 0 ? Math.ceil(blockCount / totalDepartments) : null;
 
+  // Block number assigner respects dept ranges
+  const assignBlock = buildBlockAssigner(blockCount, deptBlockRanges || []);
+
   // Pool is re-computed dynamically so every update to sessionUsedFacultyIds is immediately visible
   const getPool = () =>
     faculties.filter((f) => {
-      if (sessionUsedFacultyIds.has(f.faculty_id)) return false;  // already used this session
-      if (globallyReservedFacultyIds.has(f.faculty_id)) return false; // Sr SV
-      if (dayAllocatedFacultyIds.has(f.faculty_id)) return false;     // already used today
+      if (sessionUsedFacultyIds.has(f.faculty_id)) return false;
+      if (globallyReservedFacultyIds.has(f.faculty_id)) return false;
+      if (dayAllocatedFacultyIds.has(f.faculty_id)) return false;
       if (!isJuniorEligible(f)) return false;
-      if (scheduleDeptId && f.dept_id === scheduleDeptId) return false; // same dept as exam
+      if (scheduleDeptId && f.dept_id === scheduleDeptId) return false;
       return true;
     });
 
   const selected = [];
 
-  for (let block = 1; block <= blockCount; block++) {
+  for (let _block = 1; _block <= blockCount; _block++) {
     const pool = getPool().sort(createRoleComparator('Jr_SV', counters, randomOrder));
 
-    // Respect dept cap; fallback to any eligible faculty if cap prevents filling
     let pick = null;
     for (const candidate of pool) {
       const dCount = deptCounters.get(candidate.dept_id) || 0;
       if (maxPerDept === null || dCount < maxPerDept) { pick = candidate; break; }
     }
-    if (!pick) pick = pool[0] ?? null; // soft fallback
+    if (!pick) pick = pool[0] ?? null;
     if (!pick) break;
 
-    // Immediately remove from pool by adding to the shared Sets
+    const blockNumber = assignBlock(pick);
+    if (blockNumber === null) break; // no block numbers left
+
     sessionUsedFacultyIds.add(pick.faculty_id);
     dayAllocatedFacultyIds.add(pick.faculty_id);
     deptCounters.set(pick.dept_id, (deptCounters.get(pick.dept_id) || 0) + 1);
     updateCounter(counters, pick.faculty_id, 'Jr_SV', examId, termLabel);
-    selected.push({ faculty: pick, blockNumber: block });
+    selected.push({ faculty: pick, blockNumber });
   }
 
   console.log(`[Jr SV] Blocks: ${blockCount}, Assigned: ${selected.length}`);
@@ -479,6 +539,7 @@ export function generateAllocation(timetable, facultyData, options = {}) {
     fairnessCounters = [],
     examId = null,
     examName = '',
+    deptBlockMapping = [],
   } = options;
 
   const safeFacultyData = Array.isArray(facultyData) ? facultyData : [];
@@ -533,6 +594,7 @@ export function generateAllocation(timetable, facultyData, options = {}) {
       termLabel,
       scheduleDeptId: schedule.dept_id,
       totalDepartments,
+      deptBlockRanges: deptBlockMapping,
     });
 
     const substitutes = allocateSequentialFaculty({
@@ -706,10 +768,11 @@ export function generateAllocation(timetable, facultyData, options = {}) {
   };
 }
 
-export function generateAllocations({ faculties, fairnessCounters, schedules, examId, examName }) {
+export function generateAllocations({ faculties, fairnessCounters, schedules, examId, examName, deptBlockMapping = [] }) {
   return generateAllocation(schedules, faculties, {
     fairnessCounters,
     examId,
     examName,
+    deptBlockMapping,
   });
 }

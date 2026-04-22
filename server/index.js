@@ -410,7 +410,7 @@ app.post(
 app.post(
   "/api/allocations/run",
   asyncHandler(async (req, res) => {
-    const { examId } = req.body;
+    const { examId, deptBlockMapping = [] } = req.body;
     if (!examId) return res.status(400).json({ message: "examId required" });
 
     const [exam] = await query(
@@ -444,6 +444,7 @@ app.post(
       schedules,
       examId,
       examName: exam.exam_name,
+      deptBlockMapping,
     });
 
     await withTransaction(async (conn) => {
@@ -590,7 +591,7 @@ app.get(
     const { examId } = req.params;
 
     const dates = await query(
-      `SELECT DISTINCT exam_date, shift
+      `SELECT DISTINCT DATE_FORMAT(exam_date, '%Y-%m-%d') AS exam_date, shift
        FROM exam_schedule
        WHERE exam_id = ?
        ORDER BY exam_date, shift`,
@@ -613,6 +614,15 @@ app.get(
 
     console.log(`[DEBUG] Fetching daywise allocations: examId=${examId}, examDate=${examDate}, shift=${shift}`);
 
+    // First, let's check what dates exist in allocations
+    const allDates = await query(
+      `SELECT DISTINCT DATE(exam_date) as date, shift FROM allocations WHERE exam_id = ? ORDER BY date, shift`,
+      [Number(examId)]
+    );
+    console.log(`[DEBUG] Available allocation dates:`, JSON.stringify(allDates));
+
+    // Use allocations table's exam_date and shift directly (no JOIN needed)
+    // Compare using DATE() to handle ISO datetime format vs date string
     const allocations = await query(
       `SELECT
          a.allocation_id,
@@ -626,13 +636,13 @@ app.get(
          f.name AS faculty_name,
          f.dept_id,
          f.designation,
-         s.exam_date,
-         s.shift,
+         a.exam_date,
+         a.shift,
          s.subject_name
        FROM allocations a
        INNER JOIN faculties f ON a.faculty_id = f.faculty_id
-       INNER JOIN exam_schedule s ON a.schedule_id = s.schedule_id
-       WHERE a.exam_id = ? AND s.exam_date = ? AND s.shift = ?
+       LEFT JOIN exam_schedule s ON a.schedule_id = s.schedule_id
+       WHERE a.exam_id = ? AND DATE(a.exam_date) = ? AND a.shift = ?
        ORDER BY a.role, f.name`,
       [Number(examId), examDate, shift]
     );
