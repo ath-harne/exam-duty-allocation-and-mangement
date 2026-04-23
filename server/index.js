@@ -612,17 +612,14 @@ app.get(
       return res.status(400).json({ message: "Missing examDate or shift" });
     }
 
-    console.log(`[DEBUG] Fetching daywise allocations: examId=${examId}, examDate=${examDate}, shift=${shift}`);
+    // Adjust date: allocations store dates in UTC which is ~5:30 hours behind IST
+    // Morning shift (M) scheduled for 2026-04-14 is stored as 2026-04-13T18:30:00.000Z
+    // Evening shift (E) scheduled for 2026-04-15 is stored as 2026-04-14T18:30:00.000Z
+    // So we need to subtract 1 day from the schedule date to match allocation dates
+    const adjustedDate = new Date(examDate);
+    adjustedDate.setDate(adjustedDate.getDate() - 1);
+    const adjustedDateStr = adjustedDate.toISOString().split('T')[0];
 
-    // First, let's check what dates exist in allocations
-    const allDates = await query(
-      `SELECT DISTINCT DATE(exam_date) as date, shift FROM allocations WHERE exam_id = ? ORDER BY date, shift`,
-      [Number(examId)]
-    );
-    console.log(`[DEBUG] Available allocation dates:`, JSON.stringify(allDates));
-
-    // Use allocations table's exam_date and shift directly (no JOIN needed)
-    // Compare using DATE() to handle ISO datetime format vs date string
     const allocations = await query(
       `SELECT
          a.allocation_id,
@@ -644,10 +641,8 @@ app.get(
        LEFT JOIN exam_schedule s ON a.schedule_id = s.schedule_id
        WHERE a.exam_id = ? AND DATE(a.exam_date) = ? AND a.shift = ?
        ORDER BY a.role, f.name`,
-      [Number(examId), examDate, shift]
+      [Number(examId), adjustedDateStr, shift]
     );
-
-    console.log(`[DEBUG] Found ${allocations.length} allocations for ${examDate} ${shift}`);
 
     res.json(allocations);
   })

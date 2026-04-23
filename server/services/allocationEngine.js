@@ -350,20 +350,65 @@ function allocateJuniorSupervisors({
       return true;
     });
 
+  // Helper: check if a block number falls within a department's reserved range
+  const isBlockInDeptRange = (blockNum, facultyDeptId) => {
+    for (const r of deptBlockRanges || []) {
+      if (r.dept_id === facultyDeptId && blockNum >= r.block_from && blockNum <= r.block_to) {
+        return true;
+      }
+    }
+    return false;
+  };
+
   const selected = [];
 
   for (let _block = 1; _block <= blockCount; _block++) {
     const pool = getPool().sort(createRoleComparator('Jr_SV', counters, randomOrder));
 
     let pick = null;
+    let blockNumber = null;
+    
+    // Try to find a faculty whose department doesn't conflict with the block assignment
     for (const candidate of pool) {
       const dCount = deptCounters.get(candidate.dept_id) || 0;
-      if (maxPerDept === null || dCount < maxPerDept) { pick = candidate; break; }
+      if (maxPerDept !== null && dCount >= maxPerDept) continue;
+      
+      const testBlock = assignBlock(candidate);
+      if (testBlock === null) continue;
+      
+      // Check if this block falls within the candidate's department range
+      // If yes, skip this candidate (conflict of interest)
+      if (isBlockInDeptRange(testBlock, candidate.dept_id)) {
+        // Try to get next block for this candidate
+        continue;
+      }
+      
+      pick = candidate;
+      blockNumber = testBlock;
+      break;
     }
+    
+    // If no valid pick found with non-conflicting block, try any available block
+    if (!pick) {
+      for (const candidate of pool) {
+        const dCount = deptCounters.get(candidate.dept_id) || 0;
+        if (maxPerDept === null || dCount < maxPerDept) {
+          const testBlock = assignBlock(candidate);
+          if (testBlock !== null) {
+            pick = candidate;
+            blockNumber = testBlock;
+            break;
+          }
+        }
+      }
+    }
+    
     if (!pick) pick = pool[0] ?? null;
     if (!pick) break;
 
-    const blockNumber = assignBlock(pick);
+    if (blockNumber === null) {
+      blockNumber = assignBlock(pick);
+    }
     if (blockNumber === null) break; // no block numbers left
 
     sessionUsedFacultyIds.add(pick.faculty_id);
