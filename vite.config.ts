@@ -6,10 +6,10 @@ import path from "path";
 export default defineConfig(({ mode }) => ({
   server: {
     host: "::",
-    port: 8080,
+    port: 8081,
     proxy: {
       "/api": {
-        target: "http://localhost:3001",
+        target: process.env.VITE_API_PROXY_TARGET || "http://localhost:10000",
         changeOrigin: true,
       },
     },

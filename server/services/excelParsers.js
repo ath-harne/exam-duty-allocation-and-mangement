@@ -43,7 +43,7 @@ export function parseFacultyWorkbook(buffer) {
         gender: normalizeGender(valueFromKeys(row, ['gender'], 'O')),
         dept_id: String(valueFromKeys(row, ['dept_id', 'department', 'dept'], 'GEN')).trim().toUpperCase(),
         teaching_type: normalizeTeachingType(valueFromKeys(row, ['teaching_type', 'type'], 'T')),
-        designation: String(valueFromKeys(row, ['designation'], 'Faculty')).trim(),
+        designation: String(valueFromKeys(row, ['designation', 'post'], 'Faculty')).trim(),
         qualification: normalizeQualification(valueFromKeys(row, ['qualification'], 'Graduate')),
         date_of_joining: dateOfJoining,
         experience_years: calculateExperienceYears(dateOfJoining),

@@ -357,6 +357,7 @@ function renderUnallocatedPdf(doc, title, subtitle, rows) {
   drawFooter(doc, pageWidth, margin);
 }
 
+<<<<<<< HEAD
 // ─── Excel Export ─────────────────────────────────────────────────────────────
 
 export async function buildMatrixExcelReport(title, exam, detailedRows, role) {
@@ -365,6 +366,29 @@ export async function buildMatrixExcelReport(title, exam, detailedRows, role) {
 
   const grouped = groupByFacultyAndSlot(detailedRows, role);
 
+=======
+export async function buildMatrixExcelReport(exam, detailedRows, role) {
+  const workbook = new ExcelJS.Workbook();
+  const sheet = workbook.addWorksheet('Duty Schedule');
+
+  const title = role === 'junior'
+    ? 'Junior Supervisor Duty List'
+    : role === 'senior'
+      ? 'Senior Supervisor Duty List'
+      : role === 'squad'
+        ? 'Squad Duty List'
+        : 'Duty Schedule';
+
+  const roleMapping = {
+    junior: 'Jr_SV',
+    senior: 'Sr_SV',
+    squad: 'Squad',
+  };
+
+  const resolvedRole = roleMapping[role] ?? role;
+  const grouped = groupByFacultyAndSlot(detailedRows, resolvedRole);
+  
+>>>>>>> e7a76da5b9db5d346e872ddf8c43fda3a4d537f1
   const datesMap = new Map();
   for (const slot of grouped.slots) {
     if (!datesMap.has(slot.exam_date)) datesMap.set(slot.exam_date, new Set());

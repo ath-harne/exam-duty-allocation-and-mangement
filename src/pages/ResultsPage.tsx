@@ -1,10 +1,16 @@
 import { useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
+<<<<<<< HEAD
 import { buildReportUrl, downloadReport, getExamResult, getExams, getFaculties, updateAllocationFaculty } from '@/lib/api';
 import { toast } from 'sonner';
 import { useState } from 'react';
 import { Check, Edit2, X, FileCheck2, Download, LayoutGrid } from 'lucide-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+=======
+import { useQuery } from '@tanstack/react-query';
+import { CalendarDays, Download, FileCheck2 } from 'lucide-react';
+import { buildReportUrl, getExamResult, getExams } from '@/lib/api';
+>>>>>>> e7a76da5b9db5d346e872ddf8c43fda3a4d537f1
 import { Button } from '@/components/ui/button';
 import {
   Table,
@@ -15,6 +21,25 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import type { ExamResultSession } from '@/types/exam';
+
+/** Groups sessions by exam_date and returns an ordered Map */
+function groupByDate(sessions: ExamResultSession[]): Map<string, ExamResultSession[]> {
+  const map = new Map<string, ExamResultSession[]>();
+  for (const session of sessions) {
+    const date = session.exam_date;
+    if (!map.has(date)) map.set(date, []);
+    map.get(date)!.push(session);
+  }
+  return map;
+}
+
+/** Formats an ISO date string to a human-readable label */
+function formatDate(raw: string): string {
+  const d = new Date(raw);
+  if (isNaN(d.getTime())) return raw;
+  return d.toLocaleDateString('en-GB', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
+}
 
 export default function ResultsPage() {
   const queryClient = useQueryClient();
@@ -79,6 +104,8 @@ export default function ResultsPage() {
   }
 
   const { exam, summary, sessions, unallocated, sr_supervisors: srSupervisors = [] } = resultQuery.data;
+
+  const sessionsByDate = groupByDate(sessions);
 
   return (
     <div className="space-y-6">
@@ -171,6 +198,7 @@ export default function ResultsPage() {
           <TabsTrigger value="unallocated" className="rounded-2xl">Unassigned Faculty</TabsTrigger>
         </TabsList>
 
+<<<<<<< HEAD
         <TabsContent value="jr" className="space-y-4">
           {resultQuery.data.overall_substitutes?.length ? (
             <div className="glass-card overflow-hidden border-primary/30">
@@ -296,12 +324,72 @@ export default function ResultsPage() {
                       </span>
                     ))}
                   </p>
+=======
+        {/* ── Junior Supervisors – grouped by date ── */}
+        <TabsContent value="jr" className="space-y-8">
+          {Array.from(sessionsByDate.entries()).map(([date, dateSessions]) => (
+            <div key={date} className="space-y-3">
+              {/* Date header */}
+              <div className="flex items-center gap-3">
+                <CalendarDays className="h-5 w-5 shrink-0 text-primary" />
+                <h2 className="text-base font-extrabold tracking-wide text-foreground">{formatDate(date)}</h2>
+                <div className="h-px flex-1 bg-white/30" />
+              </div>
+
+              {/* Sessions for this date */}
+              {dateSessions.map((session) => (
+                <div key={session.schedule_id} className="glass-card overflow-hidden">
+                  <div className="border-b border-white/35 bg-white/18 px-5 py-4">
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                      <span className="rounded-md bg-primary/15 px-2.5 py-0.5 text-xs font-bold uppercase tracking-wider text-primary">
+                        {session.shift === 'M' ? 'Morning' : session.shift === 'E' ? 'Evening' : session.shift}
+                      </span>
+                      <span className="text-sm font-semibold text-foreground">{session.subject_name}</span>
+                      <span className="text-sm text-muted-foreground">{session.dept_id}</span>
+                      <span className="text-sm text-muted-foreground">{session.block_required} blocks</span>
+                      {typeof session.student_count === 'number' ? (
+                        <span className="text-sm text-muted-foreground">{session.student_count} students</span>
+                      ) : null}
+                    </div>
+                  </div>
+                  <div className="overflow-x-auto px-2 pb-2">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Block</TableHead>
+                          <TableHead>Faculty</TableHead>
+                          <TableHead>Employee Code</TableHead>
+                          <TableHead>Department</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {session.junior_supervisors.map((item) => (
+                          <TableRow key={`${session.schedule_id}-${item.block_number}`} className="border-white/30">
+                            <TableCell className="font-bold">{item.block_number}</TableCell>
+                            <TableCell className="font-semibold">{item.faculty_name}</TableCell>
+                            <TableCell>{item.employee_code}</TableCell>
+                            <TableCell>{item.dept_id}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                  {session.substitutes?.length ? (
+                    <div className="border-t border-white/30 px-5 py-4">
+                      <p className="text-sm font-semibold text-foreground">Substitute Junior Supervisors</p>
+                      <p className="mt-2 text-sm text-muted-foreground">
+                        {session.substitutes.map((faculty) => faculty.faculty_name).join(', ')}
+                      </p>
+                    </div>
+                  ) : null}
+>>>>>>> e7a76da5b9db5d346e872ddf8c43fda3a4d537f1
                 </div>
-              ) : null}
+              ))}
             </div>
           ))}
         </TabsContent>
 
+        {/* ── Senior Supervisors – global pool ── */}
         <TabsContent value="sr" className="space-y-4">
           <div className="glass-card overflow-hidden">
             <div className="border-b border-white/35 bg-white/18 px-5 py-4">
@@ -333,41 +421,57 @@ export default function ResultsPage() {
           </div>
         </TabsContent>
 
-        <TabsContent value="squad" className="space-y-4">
-          {sessions.map((session) => (
-            <div key={session.schedule_id} className="glass-card overflow-hidden">
-              <div className="border-b border-white/35 bg-white/18 px-5 py-4">
-                <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-                  <span className="text-sm font-bold text-foreground">{session.exam_date} | {session.shift}</span>
-                  <span className="text-sm text-muted-foreground">{session.subject_name}</span>
-                </div>
+        {/* ── Squad Teams – grouped by date ── */}
+        <TabsContent value="squad" className="space-y-8">
+          {Array.from(sessionsByDate.entries()).map(([date, dateSessions]) => (
+            <div key={date} className="space-y-3">
+              {/* Date header */}
+              <div className="flex items-center gap-3">
+                <CalendarDays className="h-5 w-5 shrink-0 text-primary" />
+                <h2 className="text-base font-extrabold tracking-wide text-foreground">{formatDate(date)}</h2>
+                <div className="h-px flex-1 bg-white/30" />
               </div>
-              <div className="overflow-x-auto px-2 pb-2">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Squad</TableHead>
-                      <TableHead>Member 1</TableHead>
-                      <TableHead>Member 2</TableHead>
-                      <TableHead>Member 3</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {session.squads.map((squad) => (
-                      <TableRow key={`${session.schedule_id}-${squad.squad_number}`} className="border-white/30">
-                        <TableCell className="font-bold">{squad.squad_number}</TableCell>
-                        {[0, 1, 2].map((index) => (
-                          <TableCell key={index}>{squad.members[index]?.faculty_name ?? '-'}</TableCell>
+
+              {/* Sessions for this date */}
+              {dateSessions.map((session) => (
+                <div key={session.schedule_id} className="glass-card overflow-hidden">
+                  <div className="border-b border-white/35 bg-white/18 px-5 py-4">
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                      <span className="rounded-md bg-primary/15 px-2.5 py-0.5 text-xs font-bold uppercase tracking-wider text-primary">
+                        {session.shift === 'M' ? 'Morning' : session.shift === 'E' ? 'Evening' : session.shift}
+                      </span>
+                      <span className="text-sm font-semibold text-foreground">{session.subject_name}</span>
+                    </div>
+                  </div>
+                  <div className="overflow-x-auto px-2 pb-2">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Squad</TableHead>
+                          <TableHead>Member 1</TableHead>
+                          <TableHead>Member 2</TableHead>
+                          <TableHead>Member 3</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {session.squads.map((squad) => (
+                          <TableRow key={`${session.schedule_id}-${squad.squad_number}`} className="border-white/30">
+                            <TableCell className="font-bold">{squad.squad_number}</TableCell>
+                            {[0, 1, 2].map((index) => (
+                              <TableCell key={index}>{squad.members[index]?.faculty_name ?? '-'}</TableCell>
+                            ))}
+                          </TableRow>
                         ))}
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
+              ))}
             </div>
           ))}
         </TabsContent>
 
+        {/* ── Unassigned Faculty ── */}
         <TabsContent value="unallocated" className="glass-card overflow-hidden">
           <div className="border-b border-white/35 px-6 py-5">
             <h2 className="text-lg font-bold text-foreground">Unassigned Faculty</h2>

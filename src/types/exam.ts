@@ -162,3 +162,20 @@ export interface ExamResultResponse {
   sessions: ExamResultSession[];
   unallocated: UnallocatedFaculty[];
 }
+
+export interface DaywiseAllocation {
+  allocation_id: number;
+  exam_id: number;
+  schedule_id: number;
+  faculty_id: number;
+  faculty_name: string;
+  employee_code: string;
+  dept_id: string;
+  designation: string;
+  role: 'Jr_SV' | 'Sr_SV' | 'Squad' | 'Substitute';
+  block_number: number | null;
+  squad_number: number | null;
+  exam_date: string;
+  shift: string;
+  subject_name: string;
+}

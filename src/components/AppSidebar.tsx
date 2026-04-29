@@ -1,4 +1,5 @@
 import {
+  Calendar,
   FileSpreadsheet,
   GraduationCap,
   LayoutDashboard,
@@ -31,6 +32,7 @@ const navItems = [
   { title: 'Block Rules', url: '/dashboard/dept-block-rules', icon: FileSpreadsheet },
   { title: 'Block Assignment', url: '/dashboard/block-assignment', icon: LayoutGrid },
   { title: 'Results', url: '/dashboard/results', icon: FileSpreadsheet },
+  { title: 'Day-wise Mapping', url: '/dashboard/daywise-allocation', icon: Calendar },
 ];
 
 export function AppSidebar() {
