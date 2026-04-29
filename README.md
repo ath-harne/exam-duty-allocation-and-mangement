@@ -42,7 +42,3 @@ Full-stack app for exam duty allocation with React (Vite) frontend and Node/Expr
 - Username: `admin`
 - Password: `admin123`
 
-## Notes
-
-- Do not commit your real `.env` file.
-- Keep `.env.example` updated when adding new environment variables.
