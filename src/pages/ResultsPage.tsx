@@ -1,16 +1,8 @@
 import { useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
-<<<<<<< HEAD
-import { buildReportUrl, downloadReport, getExamResult, getExams, getFaculties, updateAllocationFaculty } from '@/lib/api';
-import { toast } from 'sonner';
-import { useState } from 'react';
-import { Check, Edit2, X, FileCheck2, Download, LayoutGrid } from 'lucide-react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-=======
 import { useQuery } from '@tanstack/react-query';
 import { CalendarDays, Download, FileCheck2 } from 'lucide-react';
 import { buildReportUrl, getExamResult, getExams } from '@/lib/api';
->>>>>>> e7a76da5b9db5d346e872ddf8c43fda3a4d537f1
 import { Button } from '@/components/ui/button';
 import {
   Table,
@@ -42,14 +34,7 @@ function formatDate(raw: string): string {
 }
 
 export default function ResultsPage() {
-  const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
-  const isEditing = searchParams.get('edit') === 'true';
-  const setIsEditing = (val: boolean) => setSearchParams(prev => {
-    if (val) prev.set('edit', 'true');
-    else prev.delete('edit');
-    return prev;
-  });
   const examIdFromQuery = Number(searchParams.get('examId'));
 
   const examsQuery = useQuery({
@@ -66,22 +51,6 @@ export default function ResultsPage() {
     queryKey: ['exam-result', resolvedExamId],
     queryFn: () => getExamResult(resolvedExamId),
     enabled: !!resolvedExamId,
-  });
-
-  const facultiesQuery = useQuery({
-    queryKey: ['faculties'],
-    queryFn: getFaculties,
-    enabled: isEditing,
-  });
-
-  const reassignmentMutation = useMutation({
-    mutationFn: ({ allocationId, facultyId }: { allocationId: number; facultyId: number }) =>
-      updateAllocationFaculty(allocationId, facultyId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['exam-result'] });
-      toast.success('Faculty reassigned successfully');
-    },
-    onError: (error: Error) => toast.error(error.message),
   });
 
   if (examsQuery.isLoading) {
@@ -136,37 +105,23 @@ export default function ResultsPage() {
             </select>
 
             <div className="flex flex-col gap-2">
-              <Button 
-                variant={isEditing ? "default" : "outline"} 
-                className="w-full justify-start text-left"
-                onClick={() => setIsEditing(!isEditing)}
-              >
-                {isEditing ? <Check className="mr-2 h-4 w-4" /> : <Edit2 className="mr-2 h-4 w-4" />}
-                {isEditing ? 'Finish Editing' : 'Edit Allocations'}
-              </Button>
-              <Button asChild variant="secondary" className="w-full justify-start text-left">
-                <a href="/dashboard/block-assignment">
-                  <LayoutGrid className="mr-2 h-4 w-4" />
-                  Go to Block Assignment
+              <Button asChild variant="outline" className="w-full justify-start text-left">
+                <a href={buildReportUrl(exam.exam_id, 'excel/junior-supervisors')}>
+                  <Download className="mr-2 h-4 w-4 shrink-0" />
+                  Excel: Junior Supervisors
                 </a>
               </Button>
-              <Button variant="outline" className="w-full justify-start text-left" onClick={() =>
-                downloadReport(exam.exam_id, 'excel/junior-supervisors', `Junior_Supervisors_${exam.exam_id}.xlsx`).catch(e => toast.error(e.message))
-              }>
-                <Download className="mr-2 h-4 w-4 shrink-0" />
-                Excel: Junior Supervisors
+              <Button asChild variant="outline" className="w-full justify-start text-left">
+                <a href={buildReportUrl(exam.exam_id, 'excel/squads')}>
+                  <Download className="mr-2 h-4 w-4 shrink-0" />
+                  Excel: Squad Teams
+                </a>
               </Button>
-              <Button variant="outline" className="w-full justify-start text-left" onClick={() =>
-                downloadReport(exam.exam_id, 'excel/squads', `Squads_${exam.exam_id}.xlsx`).catch(e => toast.error(e.message))
-              }>
-                <Download className="mr-2 h-4 w-4 shrink-0" />
-                Excel: Squad Teams
-              </Button>
-              <Button variant="outline" className="w-full justify-start text-left" onClick={() =>
-                downloadReport(exam.exam_id, 'excel/senior-supervisors', `Senior_Supervisors_${exam.exam_id}.xlsx`).catch(e => toast.error(e.message))
-              }>
-                <Download className="mr-2 h-4 w-4 shrink-0" />
-                Excel: Senior Supervisors
+              <Button asChild variant="outline" className="w-full justify-start text-left">
+                <a href={buildReportUrl(exam.exam_id, 'excel/senior-supervisors')}>
+                  <Download className="mr-2 h-4 w-4 shrink-0" />
+                  Excel: Senior Supervisors
+                </a>
               </Button>
             </div>
           </div>
@@ -183,10 +138,10 @@ export default function ResultsPage() {
 
       <section className="glass-card p-5">
         <div className="flex flex-wrap gap-3">
-          <Button variant="outline" onClick={() => downloadReport(exam.exam_id, 'junior-supervisors.pdf', `Junior_Supervisors_${exam.exam_id}.pdf`).catch(e => toast.error(e.message))}>Junior Supervisor PDF</Button>
-          <Button variant="outline" onClick={() => downloadReport(exam.exam_id, 'squads.pdf', `Squads_${exam.exam_id}.pdf`).catch(e => toast.error(e.message))}>Squad Duty PDF</Button>
-          <Button variant="outline" onClick={() => downloadReport(exam.exam_id, 'senior-supervisors.pdf', `Senior_Supervisors_${exam.exam_id}.pdf`).catch(e => toast.error(e.message))}>Senior Supervisor PDF</Button>
-          <Button variant="outline" onClick={() => downloadReport(exam.exam_id, 'unallocated.pdf', `Unallocated_${exam.exam_id}.pdf`).catch(e => toast.error(e.message))}>Unassigned Faculty PDF</Button>
+          <Button asChild variant="outline"><a href={buildReportUrl(exam.exam_id, 'junior-supervisors.pdf')}>Junior Supervisor PDF</a></Button>
+          <Button asChild variant="outline"><a href={buildReportUrl(exam.exam_id, 'squads.pdf')}>Squad Duty PDF</a></Button>
+          <Button asChild variant="outline"><a href={buildReportUrl(exam.exam_id, 'senior-supervisors.pdf')}>Senior Supervisor PDF</a></Button>
+          <Button asChild variant="outline"><a href={buildReportUrl(exam.exam_id, 'unallocated.pdf')}>Unassigned Faculty PDF</a></Button>
         </div>
       </section>
 
@@ -198,133 +153,6 @@ export default function ResultsPage() {
           <TabsTrigger value="unallocated" className="rounded-2xl">Unassigned Faculty</TabsTrigger>
         </TabsList>
 
-<<<<<<< HEAD
-        <TabsContent value="jr" className="space-y-4">
-          {resultQuery.data.overall_substitutes?.length ? (
-            <div className="glass-card overflow-hidden border-primary/30">
-              <div className="border-b border-primary/20 bg-primary/10 px-5 py-4">
-                <h2 className="text-sm font-bold text-primary">Overall Examination Substitutes</h2>
-                <p className="mt-1 text-xs text-muted-foreground">These {resultQuery.data.overall_substitutes.length} members are designated substitutes for the entire examination duration.</p>
-              </div>
-              <div className="overflow-x-auto px-2 pb-2">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Faculty</TableHead>
-                      <TableHead>Employee Code</TableHead>
-                      <TableHead>Department</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {resultQuery.data.overall_substitutes.map((item: any) => (
-                      <TableRow key={item.allocation_id} className="border-white/30">
-                        <TableCell className="font-semibold">
-                          {isEditing ? (
-                            <select
-                              className="h-9 w-full rounded-md border border-white/45 bg-white/20 px-3 py-1 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-                              value={item.faculty_id}
-                              onChange={(e) => reassignmentMutation.mutate({ 
-                                allocationId: item.allocation_id, 
-                                facultyId: Number(e.target.value) 
-                              })}
-                            >
-                              {facultiesQuery.data?.map(f => (
-                                <option key={f.faculty_id} value={f.faculty_id}>{f.faculty_name}</option>
-                              ))}
-                            </select>
-                          ) : (
-                            item.faculty_name
-                          )}
-                        </TableCell>
-                        <TableCell>{item.employee_code}</TableCell>
-                        <TableCell>{item.dept_id}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            </div>
-          ) : null}
-
-          {sessions.map((session) => (
-            <div key={session.schedule_id} className="glass-card overflow-hidden">
-              <div className="border-b border-white/35 bg-white/18 px-5 py-4">
-                <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-                  <span className="text-sm font-bold text-foreground">{session.exam_date} | {session.shift}</span>
-                  <span className="text-sm text-muted-foreground">{session.subject_name}</span>
-                  <span className="text-sm text-muted-foreground">{session.dept_id}</span>
-                  <span className="text-sm text-muted-foreground">{session.block_required} blocks</span>
-                  {typeof session.student_count === 'number' ? <span className="text-sm text-muted-foreground">{session.student_count} students</span> : null}
-                </div>
-              </div>
-              <div className="overflow-x-auto px-2 pb-2">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Block</TableHead>
-                      <TableHead>Faculty</TableHead>
-                      <TableHead>Employee Code</TableHead>
-                      <TableHead>Department</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {session.junior_supervisors.map((item: any) => (
-                      <TableRow key={`${session.schedule_id}-${item.block_number}`} className="border-white/30">
-                        <TableCell className="font-bold">
-                          {item.block_number ? `B${item.block_number}` : (
-                            <span className="text-xs italic text-muted-foreground">Not yet assigned</span>
-                          )}
-                        </TableCell>
-                        <TableCell className="font-semibold">
-                          {isEditing ? (
-                            <select
-                              className="h-9 w-full rounded-md border border-white/45 bg-white/20 px-3 py-1 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-                              value={item.faculty_id}
-                              onChange={(e) => reassignmentMutation.mutate({ 
-                                allocationId: item.allocation_id, 
-                                facultyId: Number(e.target.value) 
-                              })}
-                            >
-                              {facultiesQuery.data?.map(f => (
-                                <option key={f.faculty_id} value={f.faculty_id}>{f.faculty_name}</option>
-                              ))}
-                            </select>
-                          ) : (
-                            item.faculty_name
-                          )}
-                        </TableCell>
-                        <TableCell>{item.employee_code}</TableCell>
-                        <TableCell>{item.dept_id}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-              {session.substitutes?.length ? (
-                <div className="border-t border-white/30 px-5 py-4">
-                  <p className="mt-2 flex flex-wrap gap-2 text-sm text-muted-foreground">
-                    {session.substitutes.map((item: any) => (
-                      <span key={item.allocation_id} className="inline-flex items-center gap-1 rounded-full bg-white/10 px-3 py-1">
-                        {isEditing ? (
-                          <select
-                            className="h-7 border-none bg-transparent p-0 text-sm font-semibold text-foreground focus:ring-0"
-                            value={item.faculty_id}
-                            onChange={(e) => reassignmentMutation.mutate({ 
-                              allocationId: item.allocation_id, 
-                              facultyId: Number(e.target.value) 
-                            })}
-                          >
-                            {facultiesQuery.data?.map(f => (
-                              <option key={f.faculty_id} value={f.faculty_id}>{f.faculty_name}</option>
-                            ))}
-                          </select>
-                        ) : (
-                          item.faculty_name
-                        )}
-                      </span>
-                    ))}
-                  </p>
-=======
         {/* ── Junior Supervisors – grouped by date ── */}
         <TabsContent value="jr" className="space-y-8">
           {Array.from(sessionsByDate.entries()).map(([date, dateSessions]) => (
@@ -382,7 +210,6 @@ export default function ResultsPage() {
                       </p>
                     </div>
                   ) : null}
->>>>>>> e7a76da5b9db5d346e872ddf8c43fda3a4d537f1
                 </div>
               ))}
             </div>

@@ -1,15 +1,11 @@
 import { useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Check, FileSpreadsheet, Search, Upload, X } from 'lucide-react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { Check, FileSpreadsheet, Upload, X } from 'lucide-react';
 import { toast } from 'sonner';
-import { getFaculties, updateFacultyLeave, uploadFacultyFile } from '@/lib/api';
+import { uploadFacultyFile } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-<<<<<<< HEAD
-import { Input } from '@/components/ui/input';
-=======
 import { Checkbox } from '@/components/ui/checkbox';
->>>>>>> e7a76da5b9db5d346e872ddf8c43fda3a4d537f1
 import {
   Table,
   TableBody,
@@ -24,33 +20,7 @@ export default function FacultyUploadPage() {
   const queryClient = useQueryClient();
   const [dragActive, setDragActive] = useState(false);
   const [uploadResult, setUploadResult] = useState<FacultyUploadResponse | null>(null);
-<<<<<<< HEAD
-  const [searchTerm, setSearchTerm] = useState('');
-
-  const { data: faculties, isLoading: isFacultiesLoading } = useQuery({
-    queryKey: ['faculties'],
-    queryFn: getFaculties,
-  });
-
-  const leaveMutation = useMutation({
-    mutationFn: ({ facultyId, isOnLeave }: { facultyId: number; isOnLeave: boolean }) =>
-      updateFacultyLeave(facultyId, isOnLeave),
-    onSuccess: (result) => {
-      queryClient.invalidateQueries({ queryKey: ['faculties'] });
-      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
-      toast.success(result.message);
-    },
-    onError: (error: Error) => {
-      toast.error(error.message);
-    },
-  });
-
-  const handleLeaveToggle = (facultyId: number, currentLeaveStatus: boolean) => {
-    leaveMutation.mutate({ facultyId, isOnLeave: !currentLeaveStatus });
-  };
-=======
   const [previewRows, setPreviewRows] = useState<FacultyPreview[]>([]);
->>>>>>> e7a76da5b9db5d346e872ddf8c43fda3a4d537f1
 
   const mutation = useMutation({
     mutationFn: uploadFacultyFile,
@@ -211,66 +181,6 @@ export default function FacultyUploadPage() {
           </section>
         </>
       )}
-
-      <section className="glass-card overflow-hidden mt-6">
-        <div className="border-b border-white/35 px-6 py-5 flex justify-between items-center">
-          <div>
-            <h2 className="text-lg font-bold text-foreground">Faculty Roster & Leave Management</h2>
-            <p className="mt-2 text-sm text-muted-foreground">Manage leave status for individual faculty members.</p>
-          </div>
-          <div className="relative w-full max-w-sm">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="Search by name or code..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 bg-white/40 border-white/55"
-            />
-          </div>
-        </div>
-
-        <div className="overflow-x-auto px-2 pb-2">
-          {isFacultiesLoading ? (
-            <div className="p-8 text-center text-sm text-muted-foreground">Loading roster...</div>
-          ) : faculties && faculties.length > 0 ? (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Code</TableHead>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Department</TableHead>
-                  <TableHead>Designation</TableHead>
-                  <TableHead className="text-right">On Leave</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {faculties.filter((f: any) => 
-                  f.faculty_name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                  f.employee_code.toLowerCase().includes(searchTerm.toLowerCase())
-                ).map((faculty: any) => (
-                  <TableRow key={faculty.faculty_id} className="border-white/30">
-                    <TableCell className="font-mono text-xs">{faculty.employee_code}</TableCell>
-                    <TableCell className="font-semibold">{faculty.faculty_name}</TableCell>
-                    <TableCell>{faculty.dept_id}</TableCell>
-                    <TableCell>{faculty.designation}</TableCell>
-                    <TableCell className="text-right">
-                      <input
-                        type="checkbox"
-                        checked={faculty.is_on_leave}
-                        onChange={() => handleLeaveToggle(faculty.faculty_id, faculty.is_on_leave)}
-                        disabled={leaveMutation.isPending}
-                        className="h-4 w-4 rounded border-white/50 bg-white/20 text-primary focus:ring-primary"
-                      />
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          ) : (
-            <div className="p-8 text-center text-sm text-muted-foreground">No faculty records found. Upload a file first.</div>
-          )}
-        </div>
-      </section>
     </div>
   );
 }

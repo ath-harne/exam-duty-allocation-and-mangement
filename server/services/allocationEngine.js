@@ -60,8 +60,7 @@ function getCounter(counterMap, facultyId) {
 
 function updateCounter(counterMap, facultyId, role, examId, termLabel) {
   const counter = getCounter(counterMap, facultyId);
-  const key = role === 'Overall_Substitute' ? 'jr_sv_count' : roleCountKey(role);
-  counter[key] += 1;
+  counter[roleCountKey(role)] += 1;
   counter.total_allocations += 1;
   counter.last_allocated_exam = examId;
   counter.last_allocated_term = termLabel;
@@ -245,20 +244,6 @@ function selectGlobalSeniorSupervisors(faculties, counters, examId, totalStudent
   return selected;
 }
 
-function selectGlobalSubstitutes(faculties, counters, examId, termLabel, randomOrder, reservedIds) {
-  const eligible = faculties
-    .filter((f) => !reservedIds.has(f.faculty_id) && isJuniorEligible(f))
-    .sort(createRoleComparator('Jr_SV', counters, randomOrder));
-
-  const selected = eligible.slice(0, 2); // Pick 2 overall substitutes
-
-  for (const faculty of selected) {
-    updateCounter(counters, faculty.faculty_id, 'Overall_Substitute', examId, termLabel);
-  }
-
-  return selected;
-}
-
 function getDailyAssignedFacultyIds(dayUsage, examDate) {
   if (!dayUsage.has(examDate)) {
     dayUsage.set(examDate, new Set());
@@ -346,11 +331,7 @@ function allocateJuniorSupervisors({
   termLabel,
   scheduleDeptId,
   totalDepartments,
-<<<<<<< HEAD
-  deptBlockRules = [],
-=======
   deptBlockRanges,
->>>>>>> e7a76da5b9db5d346e872ddf8c43fda3a4d537f1
 }) {
   const deptCounters = new Map();
   const maxPerDept = totalDepartments > 0 ? Math.ceil(blockCount / totalDepartments) : null;
@@ -384,22 +365,11 @@ function allocateJuniorSupervisors({
   for (let _block = 1; _block <= blockCount; _block++) {
     const pool = getPool().sort(createRoleComparator('Jr_SV', counters, randomOrder));
 
-<<<<<<< HEAD
-    // Respect dept cap & block rules; fallback to any eligible faculty if cap prevents filling
-=======
->>>>>>> e7a76da5b9db5d346e872ddf8c43fda3a4d537f1
     let pick = null;
     let blockNumber = null;
     
     // Try to find a faculty whose department doesn't conflict with the block assignment
     for (const candidate of pool) {
-      const isRestricted = deptBlockRules.some(rule => 
-        rule.dept_id === candidate.dept_id && 
-        block >= rule.start_block && 
-        block <= rule.end_block
-      );
-      if (isRestricted) continue;
-
       const dCount = deptCounters.get(candidate.dept_id) || 0;
       if (maxPerDept !== null && dCount >= maxPerDept) continue;
       
@@ -418,26 +388,6 @@ function allocateJuniorSupervisors({
       break;
     }
     
-<<<<<<< HEAD
-    // soft fallback 1: ignore dept caps but respect block rules
-    if (!pick) {
-      for (const candidate of pool) {
-        const isRestricted = deptBlockRules.some(rule => 
-          rule.dept_id === candidate.dept_id && 
-          block >= rule.start_block && 
-          block <= rule.end_block
-        );
-        if (!isRestricted) { pick = candidate; break; }
-      }
-    }
-
-    // soft fallback 2: if everyone is restricted, just pick the first one
-    if (!pick && pool[0]) {
-      console.warn(`[Jr SV] Block ${block} fallback: All eligible candidates are restricted by dept block rules.`);
-      pick = pool[0];
-    }
-    
-=======
     // If no valid pick found with non-conflicting block, try any available block
     if (!pick) {
       for (const candidate of pool) {
@@ -454,7 +404,6 @@ function allocateJuniorSupervisors({
     }
     
     if (!pick) pick = pool[0] ?? null;
->>>>>>> e7a76da5b9db5d346e872ddf8c43fda3a4d537f1
     if (!pick) break;
 
     if (blockNumber === null) {
@@ -466,11 +415,7 @@ function allocateJuniorSupervisors({
     dayAllocatedFacultyIds.add(pick.faculty_id);
     deptCounters.set(pick.dept_id, (deptCounters.get(pick.dept_id) || 0) + 1);
     updateCounter(counters, pick.faculty_id, 'Jr_SV', examId, termLabel);
-<<<<<<< HEAD
-    selected.push({ faculty: pick });
-=======
     selected.push({ faculty: pick, blockNumber });
->>>>>>> e7a76da5b9db5d346e872ddf8c43fda3a4d537f1
   }
 
   console.log(`[Jr SV] Blocks: ${blockCount}, Assigned: ${selected.length}`);
@@ -535,89 +480,81 @@ function allocateSquads({
 }) {
   const squads = [];
 
-  // 1. Initial Filtering: Active, not already assigned this session/day
-  const eligibleFaculty = faculties.filter((f) => {
+  // ── STEP 0: Build eligible pool (not Sr SV, not Jr SV, active)
+  const eligiblePool = faculties.filter((f) => {
     if (sessionUsedFacultyIds.has(f.faculty_id)) return false;
     if (globallyReservedFacultyIds.has(f.faculty_id)) return false;
     if (dayAllocatedFacultyIds.has(f.faculty_id)) return false;
     return true;
   });
 
-  // 2. Sort by fairness (squad_count, total_allocations) and experience
-  const sortByFairness = (list) => [...list].sort((a, b) => {
+  // ── STEP 2: GLOBAL FAIR SORT — done ONCE, never re-sorted inside the loop
+  // Order: squad_count ASC → total_allocations ASC → last_allocated_term ASC → experience DESC
+  const sortedPool = [...eligiblePool].sort((a, b) => {
     const cA = getCounter(counters, a.faculty_id);
     const cB = getCounter(counters, b.faculty_id);
-    
-    // Primary: Squad count (role-specific fairness)
     if (cA.squad_count !== cB.squad_count) return cA.squad_count - cB.squad_count;
-    
-    // Secondary: Total allocations (overall fairness)
     if (cA.total_allocations !== cB.total_allocations) return cA.total_allocations - cB.total_allocations;
-    
-    // Tertiary: Experience (higher experience first for squads)
+    const termCompare = compareNullableAscending(cA.last_allocated_order, cB.last_allocated_order);
+    if (termCompare !== 0) return termCompare;
     return Number(b.experience_years ?? 0) - Number(a.experience_years ?? 0);
   });
 
-  let pool = sortByFairness(eligibleFaculty);
-  
-  // 3. Helper lists
-  const getFemaleList = (currentPool) => currentPool.filter(f => isFemaleFaculty(f));
-  
-  // "Relatively Experienced" means picking the most experienced person 
-  // from the next few candidates who are equally "fair" to pick.
-  const getRelativelyExperiencedMember = (currentPool) => {
-    if (currentPool.length === 0) return null;
-    
-    // Look at the top 10 candidates (who are the most "fair" to pick right now)
-    const topCandidates = currentPool.slice(0, Math.min(10, currentPool.length));
-    
-    // From these fair candidates, pick the one with the most experience
-    return [...topCandidates].sort((a, b) => Number(b.experience_years ?? 0) - Number(a.experience_years ?? 0))[0];
+  console.log(`[Squad] Required: ${squadCount}, Pool size: ${sortedPool.length}`);
+
+  // Track who has been picked — removal means splicing from sortedPool
+  const taken = new Set();
+  const removeFromPool = (faculty) => {
+    taken.add(faculty.faculty_id);
+    const idx = sortedPool.findIndex(f => f.faculty_id === faculty.faculty_id);
+    if (idx >= 0) sortedPool.splice(idx, 1);
   };
 
-  for (let i = 1; i <= squadCount; i++) {
-    // Break if less than 3 members available for a full squad
-    if (pool.length < 3) {
-      console.warn(`[Squad] Breaking: Only ${pool.length} faculty left, cannot form a full 3-member squad.`);
+  // ── STEP 3: Build each squad
+  for (let squadNumber = 1; squadNumber <= squadCount; squadNumber += 1) {
+    if (sortedPool.length < 1) {
+      console.warn(`[Squad] Pool exhausted at squad ${squadNumber}`);
       break;
     }
 
-    const squadMembers = [];
+    // 1️⃣ Pick FEMALE — first female in the already-sorted pool
+    let m1idx = sortedPool.findIndex(f => isFemaleFaculty(f));
+    let m1;
+    if (m1idx >= 0) {
+      m1 = sortedPool[m1idx];
+    } else {
+      // Fallback: first available in sorted pool
+      m1 = sortedPool[0] ?? null;
+    }
+    if (!m1) break;
+    removeFromPool(m1);
 
-    const pickAndRemove = (faculty) => {
-      if (!faculty) return null;
-      squadMembers.push(faculty);
-      
-      // Remove from shared pools
-      sessionUsedFacultyIds.add(faculty.faculty_id);
-      dayAllocatedFacultyIds.add(faculty.faculty_id);
-      updateCounter(counters, faculty.faculty_id, 'Squad', examId, termLabel);
-      
-      // Remove from local pool
-      pool = pool.filter(f => f.faculty_id !== faculty.faculty_id);
-      return faculty;
-    };
+    // 2️⃣ Pick HIGH EXPERIENCE — highest experience_years from remaining pool
+    if (sortedPool.length < 1) break;
+    let m2 = sortedPool.reduce((best, f) =>
+      Number(f.experience_years ?? 0) > Number(best.experience_years ?? 0) ? f : best,
+      sortedPool[0]
+    );
+    removeFromPool(m2);
 
-    // Member 1: Female (fairness-based among females)
-    const femaleList = getFemaleList(pool);
-    let m1 = femaleList[0] || pool[0];
-    pickAndRemove(m1);
+    // 3️⃣ Pick LEAST USED — first person from the sorted pool (already sorted by least used)
+    if (sortedPool.length < 1) break;
+    const m3 = sortedPool[0];
+    removeFromPool(m3);
 
-    // Member 2: Relatively Experienced (pick best experience among the current fairest candidates)
-    let m2 = getRelativelyExperiencedMember(pool);
-    pickAndRemove(m2);
+    // ── STEP 4: Update counters for all 3
+    const members = [m1, m2, m3];
+    for (const member of members) {
+      sessionUsedFacultyIds.add(member.faculty_id);
+      dayAllocatedFacultyIds.add(member.faculty_id);
+      updateCounter(counters, member.faculty_id, 'Squad', examId, termLabel);
+    }
 
-    // Member 3: Normal (next fairest candidate)
-    let m3 = pool[0];
-    pickAndRemove(m3);
-
-    squads.push({
-      squad_number: i,
-      members: squadMembers
-    });
+    // ── STEP 5: Store squad
+    squads.push({ squad_number: squadNumber, members });
   }
 
-  console.log(`[Squad] Allocated ${squads.length} squads out of ${squadCount} required.`);
+  console.log(`[Squad] Formed: ${squads.length}/${squadCount}`);
   return squads;
 }
 
@@ -645,7 +582,6 @@ function buildSeniorSessionSummary(seniorPool) {
 export function generateAllocation(timetable, facultyData, options = {}) {
   const {
     fairnessCounters = [],
-    deptBlockRules = [],
     examId = null,
     examName = '',
     deptBlockMapping = [],
@@ -674,64 +610,58 @@ export function generateAllocation(timetable, facultyData, options = {}) {
     randomOrder
   );
   const seniorPoolIds = new Set(seniorPool.map((faculty) => faculty.faculty_id));
-  
-  const substitutePool = selectGlobalSubstitutes(
-    activeFaculties,
-    counterMap,
-    examId,
-    termLabel,
-    randomOrder,
-    seniorPoolIds
-  );
-  const substitutePoolIds = new Set(substitutePool.map((f) => f.faculty_id));
-  const globallyReservedIds = new Set([...seniorPoolIds, ...substitutePoolIds]);
 
   for (const senior of seniorPool) {
     globallyAllocatedFacultyIds.add(senior.faculty_id);
-  }
-  for (const sub of substitutePool) {
-    globallyAllocatedFacultyIds.add(sub.faculty_id);
   }
 
   for (const schedule of normalizedSchedules) {
     const dayAllocatedFacultyIds = getDailyAssignedFacultyIds(dayUsage, schedule.exam_date);
 
     // Seed the day-level Set with Sr SV so they are protected from any intra-day reassignment
-    for (const reservedId of globallyReservedIds) {
-      dayAllocatedFacultyIds.add(reservedId);
+    for (const senior of seniorPool) {
+      dayAllocatedFacultyIds.add(senior.faculty_id);
     }
 
     // sessionUsedFacultyIds is the single source of truth for this session.
     // All three allocators (Jr SV, Substitutes, Squads) READ and WRITE to this same Set.
-    const sessionUsedFacultyIds = new Set(globallyReservedIds);
+    const sessionUsedFacultyIds = new Set(seniorPoolIds);
 
     const juniorSupervisors = allocateJuniorSupervisors({
       faculties: activeFaculties,
       blockCount: schedule.blocks,
       counters: counterMap,
       randomOrder,
-      globallyReservedFacultyIds: globallyReservedIds,
+      globallyReservedFacultyIds: seniorPoolIds,
       dayAllocatedFacultyIds,
       sessionUsedFacultyIds,
       examId,
       termLabel,
       scheduleDeptId: schedule.dept_id,
       totalDepartments,
-<<<<<<< HEAD
-      deptBlockRules,
-=======
       deptBlockRanges: deptBlockMapping,
->>>>>>> e7a76da5b9db5d346e872ddf8c43fda3a4d537f1
     });
 
-    const substitutes = []; // No longer per session
+    const substitutes = allocateSequentialFaculty({
+      faculties: activeFaculties,
+      count: SUBSTITUTE_COUNT,
+      counters: counterMap,
+      randomOrder,
+      role: 'Jr_SV',
+      eligibilityCheck: isJuniorEligible,
+      globallyReservedFacultyIds: seniorPoolIds,
+      dayAllocatedFacultyIds,
+      sessionUsedFacultyIds,
+      examId,
+      termLabel,
+    });
 
     const squadsRequired = Math.ceil(schedule.blocks / 10);
     const squads = allocateSquads({
       faculties: activeFaculties,
       squadCount: squadsRequired,
       counters: counterMap,
-      globallyReservedFacultyIds: globallyReservedIds,
+      globallyReservedFacultyIds: seniorPoolIds,
       dayAllocatedFacultyIds,
       sessionUsedFacultyIds,
       examId,
@@ -740,6 +670,9 @@ export function generateAllocation(timetable, facultyData, options = {}) {
 
     if (juniorSupervisors.length < schedule.blocks) {
       warnings.push(`${schedule.subject_name} on ${schedule.exam_date} ${schedule.shift}: junior supervisor shortage.`);
+    }
+    if (substitutes.length < SUBSTITUTE_COUNT) {
+      warnings.push(`${schedule.subject_name} on ${schedule.exam_date} ${schedule.shift}: substitute junior supervisor shortage.`);
     }
     if (squads.length < squadsRequired) {
       warnings.push(`${schedule.subject_name} on ${schedule.exam_date} ${schedule.shift}: squad shortage.`);
@@ -758,21 +691,33 @@ export function generateAllocation(timetable, facultyData, options = {}) {
       });
     });
 
-    juniorSupervisors.forEach(({ faculty }) => {
+    juniorSupervisors.forEach(({ faculty, blockNumber }) => {
       globallyAllocatedFacultyIds.add(faculty.faculty_id);
       allocations.push({
         exam_id: examId,
         schedule_id: schedule.schedule_id,
         faculty_id: faculty.faculty_id,
         role: 'Jr_SV',
-        block_number: null,
+        block_number: blockNumber,
         squad_number: null,
         exam_date: schedule.exam_date,
         shift: schedule.shift,
       });
     });
 
-    // Substitutes are no longer per-session, so we don't add them here
+    substitutes.forEach((faculty) => {
+      globallyAllocatedFacultyIds.add(faculty.faculty_id);
+      allocations.push({
+        exam_id: examId,
+        schedule_id: schedule.schedule_id,
+        faculty_id: faculty.faculty_id,
+        role: 'Substitute',
+        block_number: null,
+        squad_number: null,
+        exam_date: schedule.exam_date,
+        shift: schedule.shift,
+      });
+    });
 
     squads.forEach((squad) => {
       squad.members.forEach((member) => {
@@ -803,18 +748,18 @@ export function generateAllocation(timetable, facultyData, options = {}) {
       block_required: schedule.blocks,
       sr_supervisors: buildSeniorSessionSummary(seniorPool),
       senior_supervisors: buildSeniorSessionSummary(seniorPool),
-      jr_supervisors: juniorSupervisors.map(({ faculty }) => ({
-        block: null,
-        block_number: null,
+      jr_supervisors: juniorSupervisors.map(({ faculty, blockNumber }) => ({
+        block: blockNumber,
+        block_number: blockNumber,
         faculty_id: faculty.faculty_id,
         faculty_name: faculty.name,
         name: faculty.name,
         employee_code: faculty.employee_code,
         dept_id: faculty.dept_id,
       })),
-      junior_supervisors: juniorSupervisors.map(({ faculty }) => ({
-        block: null,
-        block_number: null,
+      junior_supervisors: juniorSupervisors.map(({ faculty, blockNumber }) => ({
+        block: blockNumber,
+        block_number: blockNumber,
         faculty_id: faculty.faculty_id,
         faculty_name: faculty.name,
         name: faculty.name,
@@ -829,36 +774,14 @@ export function generateAllocation(timetable, facultyData, options = {}) {
       unallocated: buildSessionUnallocated(
         activeFaculties,
         sessionUsedFacultyIds,
-        globallyReservedIds,
+        seniorPoolIds,
         dayAllocatedFacultyIds
       ),
     });
   }
 
   const srSupervisors = seniorPool.map((faculty) => buildFacultySummary(faculty));
-  const unallocated = buildGlobalUnallocated(activeFaculties, globallyAllocatedFacultyIds, globallyReservedIds);
-  const overallSubstitutes = substitutePool.map((f) => buildFacultySummary(f));
-
-  if (srSupervisors.length < (normalizedSchedules[0]?.totalStudents < 800 ? 1 : 2)) {
-    warnings.push(`Senior Supervisor shortage: Only ${srSupervisors.length} selected.`);
-  }
-  if (overallSubstitutes.length < SUBSTITUTE_COUNT) {
-    warnings.push(`Overall Substitute shortage: Only ${overallSubstitutes.length} selected.`);
-  }
-
-  // Add overall substitutes to the master allocations list (once, with NULL date/shift)
-  for (const sub of overallSubstitutes) {
-    allocations.push({
-      exam_id: examId,
-      schedule_id: null,
-      faculty_id: sub.faculty_id,
-      role: 'Overall_Substitute',
-      block_number: null,
-      squad_number: null,
-      exam_date: null,
-      shift: null,
-    });
-  }
+  const unallocated = buildGlobalUnallocated(activeFaculties, globallyAllocatedFacultyIds, seniorPoolIds);
 
   return {
     exam: {
@@ -867,8 +790,6 @@ export function generateAllocation(timetable, facultyData, options = {}) {
     },
     sr_supervisors: srSupervisors,
     senior_supervisors: srSupervisors,
-    overall_substitutes: overallSubstitutes,
-    global_substitutes: overallSubstitutes,
     sessions,
     allocations,
     counters: Array.from(counterMap.values()).map((counter) => ({
@@ -892,14 +813,9 @@ export function generateAllocation(timetable, facultyData, options = {}) {
   };
 }
 
-<<<<<<< HEAD
-export function generateAllocations({ faculties, fairnessCounters, schedules, examId, examName, deptBlockRules = [] }) {
-=======
 export function generateAllocations({ faculties, fairnessCounters, schedules, examId, examName, deptBlockMapping = [] }) {
->>>>>>> e7a76da5b9db5d346e872ddf8c43fda3a4d537f1
   return generateAllocation(schedules, faculties, {
     fairnessCounters,
-    deptBlockRules,
     examId,
     examName,
     deptBlockMapping,
