@@ -38,10 +38,10 @@ export default function DashboardLayout() {
 
   return (
     <SidebarProvider>
-      <div className="min-h-screen w-full p-5 md:p-8">
-        <div className="glass-card mx-auto flex min-h-[calc(100vh-2.5rem)] w-full max-w-[1420px] gap-0 border-white/60 bg-[linear-gradient(180deg,rgba(255,255,255,0.66),rgba(255,255,255,0.5))] p-3 md:p-4">
+      <div className="h-screen w-full overflow-hidden p-5 md:p-8">
+        <div className="glass-card mx-auto flex h-[calc(100vh-2.5rem)] w-full max-w-[1420px] gap-0 border-white/60 bg-[linear-gradient(180deg,rgba(255,255,255,0.66),rgba(255,255,255,0.5))] p-3 md:p-4">
           <AppSidebar />
-          <div className="flex min-w-0 flex-1 flex-col rounded-[24px] bg-white/12 px-3 py-3 md:px-4">
+          <div className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-[24px] bg-white/12 px-3 py-3 md:px-4">
             <header className="sticky top-3 z-10 mb-5 overflow-visible rounded-[22px] border border-white/55 bg-[linear-gradient(180deg,rgba(255,255,255,0.72),rgba(255,255,255,0.56))] px-4 py-4 shadow-[0_14px_32px_rgba(121,111,143,0.05)] backdrop-blur-xl md:px-6">
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div className="flex items-start gap-3">
@@ -68,7 +68,7 @@ export default function DashboardLayout() {
               </div>
             </header>
 
-            <main className="page-shell flex-1 overflow-auto pb-6">
+            <main className="page-shell flex-1 overflow-y-auto overflow-x-hidden pb-6">
               <Outlet />
             </main>
           </div>

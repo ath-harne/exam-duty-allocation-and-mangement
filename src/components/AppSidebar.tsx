@@ -52,7 +52,7 @@ export function AppSidebar() {
       variant="floating"
       className="md:!w-[15.5rem] md:group-data-[collapsible=icon]:!w-[5rem] md:pr-2"
     >
-      <SidebarContent className="h-full rounded-[22px] border border-white/55 bg-[linear-gradient(180deg,rgba(239,238,252,0.88),rgba(241,238,248,0.72))] text-sidebar-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.62)] backdrop-blur-xl">
+      <SidebarContent className="h-full overflow-hidden rounded-[22px] border border-white/55 bg-[linear-gradient(180deg,rgba(239,238,252,0.88),rgba(241,238,248,0.72))] text-sidebar-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.62)] backdrop-blur-xl">
         <div className="px-4 pt-5">
           <div className="flex items-center gap-3 rounded-2xl border border-white/68 bg-white/78 px-3 py-3 shadow-[0_10px_22px_rgba(121,111,143,0.05)]">
             <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary text-white shadow-[0_10px_22px_rgba(74,129,239,0.25)]">
@@ -67,45 +67,46 @@ export function AppSidebar() {
           </div>
         </div>
 
-        <SidebarGroup className="px-3 pt-4">
-          <SidebarGroupLabel className="px-3 text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
-            Navigation
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu className="gap-1.5">
-              {navItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild className="h-auto rounded-xl p-0 hover:bg-transparent">
-                    <NavLink
-                      to={item.url}
-                      end={item.url === '/dashboard'}
-                      className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sidebar-foreground transition-all hover:bg-white/78 hover:shadow-[0_10px_20px_rgba(121,111,143,0.05)]"
-                      activeClassName="bg-primary text-white shadow-[0_12px_24px_rgba(74,129,239,0.22)]"
-                    >
-                      <item.icon className="h-4 w-4 flex-shrink-0" />
-                      {!collapsed && <span className="truncate text-sm font-medium">{item.title}</span>}
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-      </SidebarContent>
-
-      <SidebarFooter className="mt-3 p-0">
-        <div className="rounded-[18px] border border-white/62 bg-white/72 px-2.5 py-2.5 backdrop-blur-md">
-          <Button
-            variant="ghost"
-            size={collapsed ? 'icon' : 'default'}
-            className="w-full justify-start rounded-xl text-sidebar-foreground hover:bg-white hover:text-foreground"
-            onClick={handleLogout}
-          >
-            <LogOut className="h-4 w-4" />
-            {!collapsed && <span className="ml-2">Sign Out</span>}
-          </Button>
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          <SidebarGroup className="px-3 pt-4">
+            <SidebarGroupLabel className="px-3 text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+              Navigation
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu className="gap-1.5">
+                {navItems.map((item) => (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton asChild className="h-auto rounded-xl p-0 hover:bg-transparent">
+                      <NavLink
+                        to={item.url}
+                        end={item.url === '/dashboard'}
+                        className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sidebar-foreground transition-all hover:bg-white/78 hover:shadow-[0_10px_20px_rgba(121,111,143,0.05)]"
+                        activeClassName="bg-primary text-white shadow-[0_12px_24px_rgba(74,129,239,0.22)]"
+                      >
+                        <item.icon className="h-4 w-4 flex-shrink-0" />
+                        {!collapsed && <span className="truncate text-sm font-medium">{item.title}</span>}
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
         </div>
-      </SidebarFooter>
+        <SidebarFooter className="shrink-0 p-3 pt-2">
+          <div className="rounded-[18px] border border-white/62 bg-white/72 px-2.5 py-2.5 backdrop-blur-md">
+            <Button
+              variant="ghost"
+              size={collapsed ? 'icon' : 'default'}
+              className="w-full justify-start rounded-xl text-sidebar-foreground hover:bg-white hover:text-foreground"
+              onClick={handleLogout}
+            >
+              <LogOut className="h-4 w-4" />
+              {!collapsed && <span className="ml-2">Sign Out</span>}
+            </Button>
+          </div>
+        </SidebarFooter>
+      </SidebarContent>
     </Sidebar>
   );
 }

@@ -309,7 +309,7 @@ export default function AllocationPage() {
 
         <div className="border-t border-white/25 bg-white/8 px-6 py-3">
           <p className="text-xs text-muted-foreground">
-            💡 Departments not listed here will receive sequential block numbers after all mapped ranges are filled. Ranges can overlap — the engine fills each dept's range in order.
+             Departments not listed here will receive sequential block numbers after all mapped ranges are filled. Ranges can overlap — the engine fills each dept's range in order.
           </p>
         </div>
       </section>

@@ -1,8 +1,9 @@
 import { Link } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
-import { BookOpen, CheckCircle2, LayoutGrid, Users } from 'lucide-react';
-import { getDashboard } from '@/lib/api';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { BookOpen, Trash2, Users } from 'lucide-react';
+import { deleteExam, getDashboard } from '@/lib/api';
 import { Button } from '@/components/ui/button';
+import { toast } from 'sonner';
 import {
   Table,
   TableBody,
@@ -16,15 +17,34 @@ const statCards = [
   { key: 'total_faculties', label: 'Total Faculty', icon: Users, accent: 'bg-sky-100 text-sky-700' },
   { key: 'available_faculties', label: 'Available Faculty', icon: BookOpen, accent: 'bg-emerald-100 text-emerald-700' },
   { key: 'on_leave_count', label: 'On Leave', icon: Users, accent: 'bg-rose-100 text-rose-700' },
-  { key: 'total_blocks', label: 'Scheduled Blocks', icon: LayoutGrid, accent: 'bg-amber-100 text-amber-700' },
-  { key: 'total_allocations', label: 'Allocated Duties', icon: CheckCircle2, accent: 'bg-cyan-100 text-cyan-700' },
 ] as const;
 
 export default function DashboardPage() {
+  const queryClient = useQueryClient();
   const { data, isLoading, error } = useQuery({
     queryKey: ['dashboard'],
     queryFn: getDashboard,
   });
+
+  const deleteExamMutation = useMutation({
+    mutationFn: deleteExam,
+    onSuccess: (result) => {
+      toast.success(result.message);
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['exams'] });
+    },
+    onError: (err: Error) => {
+      toast.error(err.message);
+    },
+  });
+
+  const handleDeleteExam = (examId: number, examName: string) => {
+    const shouldDelete = window.confirm(
+      `Delete examination "${examName}"?\n\nThis will remove related schedule and allocation records.`
+    );
+    if (!shouldDelete) return;
+    deleteExamMutation.mutate(examId);
+  };
 
   if (isLoading) {
     return <div className="glass-card p-6 text-sm text-muted-foreground">Loading dashboard...</div>;
@@ -38,8 +58,6 @@ export default function DashboardPage() {
     total_faculties: data.faculty.total_faculties,
     available_faculties: data.faculty.available_faculties,
     on_leave_count: data.faculty.on_leave_count,
-    total_blocks: data.schedule.total_blocks,
-    total_allocations: data.allocations.total_allocations,
   };
 
   return (
@@ -64,7 +82,7 @@ export default function DashboardPage() {
         </div>
       </section>
 
-      <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
+      <section className="grid grid-cols-1 gap-4 md:grid-cols-3">
         {statCards.map(({ key, label, icon: Icon, accent }) => (
           <div key={key} className="metric-card">
             <div className="flex items-start justify-between gap-4">
@@ -108,9 +126,20 @@ export default function DashboardPage() {
                     <TableCell>{exam.total_blocks}</TableCell>
                     <TableCell>{new Date(exam.created_at).toLocaleString()}</TableCell>
                     <TableCell className="text-right">
-                      <Button asChild size="sm" variant="outline">
-                        <Link to={`/dashboard/results?examId=${exam.exam_id}`}>View</Link>
-                      </Button>
+                      <div className="flex justify-end gap-2">
+                        <Button asChild size="sm" variant="outline">
+                          <Link to={`/dashboard/results?examId=${exam.exam_id}`}>View</Link>
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="destructive"
+                          onClick={() => handleDeleteExam(exam.exam_id, exam.exam_name)}
+                          disabled={deleteExamMutation.isPending}
+                          aria-label={`Delete ${exam.exam_name}`}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 )) : (

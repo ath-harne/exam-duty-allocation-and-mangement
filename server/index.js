@@ -214,6 +214,29 @@ app.get(
   })
 );
 
+app.delete(
+  "/api/exams/:examId",
+  asyncHandler(async (req, res) => {
+    const examId = Number(req.params.examId);
+    if (!Number.isInteger(examId) || examId <= 0) {
+      return res.status(400).json({ message: "Invalid exam id" });
+    }
+
+    const exams = await query("SELECT exam_id FROM exams WHERE exam_id = ?", [examId]);
+    if (!exams.length) {
+      return res.status(404).json({ message: "Exam not found" });
+    }
+
+    await withTransaction(async (conn) => {
+      await conn.query("DELETE FROM allocations WHERE exam_id = ?", [examId]);
+      await conn.query("DELETE FROM exam_schedule WHERE exam_id = ?", [examId]);
+      await conn.query("DELETE FROM exams WHERE exam_id = ?", [examId]);
+    });
+
+    res.json({ message: "Examination deleted successfully" });
+  })
+);
+
 app.get(
   "/api/exams/:examId/results",
   asyncHandler(async (req, res) => {

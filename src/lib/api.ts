@@ -28,6 +28,12 @@ export async function getExams() {
   return parseResponse<ExamListItem[]>(await fetch(`${API_BASE}/exams`));
 }
 
+export async function deleteExam(examId: number) {
+  return parseResponse<{ message: string }>(await fetch(`${API_BASE}/exams/${examId}`, {
+    method: 'DELETE',
+  }));
+}
+
 export async function uploadFacultyFile(file: File) {
   const formData = new FormData();
   formData.append('file', file);
