@@ -5,11 +5,7 @@ import { toast } from 'sonner';
 import { getFaculties, updateFacultyLeave, uploadFacultyFile } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-<<<<<<< HEAD
 import { Input } from '@/components/ui/input';
-=======
-import { Checkbox } from '@/components/ui/checkbox';
->>>>>>> e7a76da5b9db5d346e872ddf8c43fda3a4d537f1
 import {
   Table,
   TableBody,
@@ -24,7 +20,7 @@ export default function FacultyUploadPage() {
   const queryClient = useQueryClient();
   const [dragActive, setDragActive] = useState(false);
   const [uploadResult, setUploadResult] = useState<FacultyUploadResponse | null>(null);
-<<<<<<< HEAD
+  const [previewRows, setPreviewRows] = useState<FacultyPreview[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
 
   const { data: faculties, isLoading: isFacultiesLoading } = useQuery({
@@ -48,9 +44,6 @@ export default function FacultyUploadPage() {
   const handleLeaveToggle = (facultyId: number, currentLeaveStatus: boolean) => {
     leaveMutation.mutate({ facultyId, isOnLeave: !currentLeaveStatus });
   };
-=======
-  const [previewRows, setPreviewRows] = useState<FacultyPreview[]>([]);
->>>>>>> e7a76da5b9db5d346e872ddf8c43fda3a4d537f1
 
   const mutation = useMutation({
     mutationFn: uploadFacultyFile,
@@ -58,6 +51,7 @@ export default function FacultyUploadPage() {
       setUploadResult(result);
       setPreviewRows(result.preview);
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['faculties'] });
       toast.success(result.message);
     },
     onError: (error: Error) => {
@@ -165,12 +159,9 @@ export default function FacultyUploadPage() {
                     <TableHead>Name</TableHead>
                     <TableHead>Gender</TableHead>
                     <TableHead>Department</TableHead>
-                    {/* <TableHead>Type</TableHead> */}
                     <TableHead>Designation</TableHead>
                     <TableHead>Qualification</TableHead>
-                    <TableHead>Date of Joining</TableHead>
                     <TableHead>Experience</TableHead>
-                    <TableHead>Leave</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -180,29 +171,9 @@ export default function FacultyUploadPage() {
                       <TableCell className="font-semibold">{faculty.name}</TableCell>
                       <TableCell>{faculty.gender}</TableCell>
                       <TableCell>{faculty.dept_id}</TableCell>
-                      <TableCell>
-                        <Badge variant={faculty.teaching_type === 'T' ? 'default' : 'secondary'}>
-                          {faculty.teaching_type === 'T' ? 'Teaching' : 'Non-Teaching'}
-                        </Badge>
-                      </TableCell>
+                      <TableCell>{faculty.designation}</TableCell>
                       <TableCell>{faculty.qualification}</TableCell>
-                      <TableCell>{faculty.date_of_joining || 'N/A'}</TableCell>
                       <TableCell>{faculty.experience_years} yrs</TableCell>
-                      <TableCell>
-                        <Checkbox
-                          checked={faculty.is_on_leave}
-                          onCheckedChange={(value) => {
-                            setPreviewRows((current) =>
-                              current.map((row) =>
-                                row.employee_code === faculty.employee_code
-                                  ? { ...row, is_on_lSeave: Boolean(value) }
-                                  : row
-                              )
-                            );
-                          }}
-                          aria-label={faculty.is_on_leave ? 'On leave' : 'Available'}
-                        />
-                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

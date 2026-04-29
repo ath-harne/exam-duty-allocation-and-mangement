@@ -40,9 +40,9 @@ function groupByFacultyAndSlot(rows, role) {
 
     facultyMap.get(row.faculty_id).slots[slotKey] =
       role === 'Jr_SV'
-        ? `B${row.block_number}`
+        ? `B${row.block_number || ''}`
         : role === 'Squad'
-        ? `SQ-${row.squad_number}`
+        ? `SQ-${row.squad_number || ''}`
         : row.shift;
   }
 
@@ -106,12 +106,6 @@ function drawPageHeader(doc, title, subtitle, pageWidth, margin) {
   return margin + 68; // return Y position after header
 }
 
-/**
- * Draw a table given:
- *  columns: [{ header, width, align? }]
- *  rows: string[][] — cell text values
- *  startY: top Y of table
- */
 function drawTable(doc, columns, rows, startY, margin, pageHeight) {
   const CELL_PAD_X = 6;
   const ROW_HEIGHT = 20;
@@ -120,7 +114,6 @@ function drawTable(doc, columns, rows, startY, margin, pageHeight) {
   let y = startY;
   const tableWidth = columns.reduce((s, c) => s + c.width, 0);
 
-  // ── Draw header row
   const drawHeader = (yPos) => {
     let x = margin;
     doc
@@ -140,7 +133,6 @@ function drawTable(doc, columns, rows, startY, margin, pageHeight) {
       x += col.width;
     });
 
-    // Header border
     x = margin;
     columns.forEach((col) => {
       doc.rect(x, yPos, col.width, HEADER_HEIGHT).stroke(COLORS.border);
@@ -152,9 +144,7 @@ function drawTable(doc, columns, rows, startY, margin, pageHeight) {
 
   y = drawHeader(y);
 
-  // ── Draw data rows
   rows.forEach((rowData, rowIndex) => {
-    // Page break check
     if (y + ROW_HEIGHT > pageHeight - margin) {
       doc.addPage();
       y = margin + 10;
@@ -164,14 +154,12 @@ function drawTable(doc, columns, rows, startY, margin, pageHeight) {
     const isAlt = rowIndex % 2 === 1;
     let x = margin;
 
-    // Row background
     if (isAlt) {
       doc.rect(x, y, tableWidth, ROW_HEIGHT).fill(COLORS.altRow);
     } else {
       doc.rect(x, y, tableWidth, ROW_HEIGHT).fill('#FFFFFF');
     }
 
-    // Row cells
     columns.forEach((col, colIndex) => {
       const cellText = String(rowData[colIndex] ?? '');
       doc
@@ -191,7 +179,6 @@ function drawTable(doc, columns, rows, startY, margin, pageHeight) {
     y += ROW_HEIGHT;
   });
 
-  // Bottom border
   doc
     .moveTo(margin, y)
     .lineTo(margin + tableWidth, y)
@@ -245,7 +232,6 @@ function renderMatrixPdf(doc, title, subtitle, grouped) {
     return;
   }
 
-  // Build columns — Name + one col per slot
   const nameColWidth = 160;
   const codeColWidth = 70;
   const slotCount = grouped.slots.length;
@@ -301,7 +287,6 @@ function renderSeniorPdf(doc, title, subtitle, rows) {
     { header: 'Experience (yrs)', width: usableWidth * 0.12, align: 'center' },
   ];
 
-  // Adjust last col to fill exactly
   const usedW = columns.reduce((s, c) => s + c.width, 0);
   columns[columns.length - 1].width += (usableWidth - usedW);
 
@@ -357,27 +342,11 @@ function renderUnallocatedPdf(doc, title, subtitle, rows) {
   drawFooter(doc, pageWidth, margin);
 }
 
-<<<<<<< HEAD
 // ─── Excel Export ─────────────────────────────────────────────────────────────
 
 export async function buildMatrixExcelReport(title, exam, detailedRows, role) {
   const workbook = new ExcelJS.Workbook();
   const sheet = workbook.addWorksheet('Duty Schedule');
-
-  const grouped = groupByFacultyAndSlot(detailedRows, role);
-
-=======
-export async function buildMatrixExcelReport(exam, detailedRows, role) {
-  const workbook = new ExcelJS.Workbook();
-  const sheet = workbook.addWorksheet('Duty Schedule');
-
-  const title = role === 'junior'
-    ? 'Junior Supervisor Duty List'
-    : role === 'senior'
-      ? 'Senior Supervisor Duty List'
-      : role === 'squad'
-        ? 'Squad Duty List'
-        : 'Duty Schedule';
 
   const roleMapping = {
     junior: 'Jr_SV',
@@ -388,7 +357,6 @@ export async function buildMatrixExcelReport(exam, detailedRows, role) {
   const resolvedRole = roleMapping[role] ?? role;
   const grouped = groupByFacultyAndSlot(detailedRows, resolvedRole);
   
->>>>>>> e7a76da5b9db5d346e872ddf8c43fda3a4d537f1
   const datesMap = new Map();
   for (const slot of grouped.slots) {
     if (!datesMap.has(slot.exam_date)) datesMap.set(slot.exam_date, new Set());

@@ -113,36 +113,35 @@ async function migrateSchema() {
     console.warn("⚠️ Migration skip (exam_schedule.student_count):", e.message);
   }
 
-<<<<<<< HEAD
-  await pool.query(
-    "ALTER TABLE allocations MODIFY COLUMN role ENUM('Jr_SV', 'Substitute', 'Sr_SV', 'Squad', 'Overall_Substitute') NOT NULL"
-  );
-
-  await pool.query("ALTER TABLE allocations MODIFY COLUMN exam_date DATE NULL");
-  await pool.query("ALTER TABLE allocations MODIFY COLUMN shift ENUM('M', 'E') NULL");
-
-  const [tableExists] = await pool.query(
-    `SELECT 1 FROM information_schema.TABLES WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'dept_block_rules' LIMIT 1`,
-    [databaseConfig.database]
-  );
-  if (tableExists.length === 0) {
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS dept_block_rules (
-        rule_id INT AUTO_INCREMENT PRIMARY KEY,
-        dept_id VARCHAR(32) NOT NULL,
-        start_block INT NOT NULL,
-        end_block INT NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      );
-    `);
-=======
   try {
     await pool.query(
-      "ALTER TABLE allocations MODIFY COLUMN role ENUM('Jr_SV', 'Substitute', 'Sr_SV', 'Squad') NOT NULL"
+      "ALTER TABLE allocations MODIFY COLUMN role ENUM('Jr_SV', 'Substitute', 'Sr_SV', 'Squad', 'Overall_Substitute') NOT NULL"
     );
+    await pool.query("ALTER TABLE allocations MODIFY COLUMN exam_date DATE NULL");
+    await pool.query("ALTER TABLE allocations MODIFY COLUMN shift ENUM('M', 'E') NULL");
   } catch (e) {
-    console.warn("⚠️ Migration skip (allocations.role):", e.message);
->>>>>>> e7a76da5b9db5d346e872ddf8c43fda3a4d537f1
+    console.warn("⚠️ Migration skip (allocations columns):", e.message);
+  }
+
+  try {
+    const dbName = resolveDbName();
+    const [tableExists] = await pool.query(
+      `SELECT 1 FROM information_schema.TABLES WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'dept_block_rules' LIMIT 1`,
+      [dbName]
+    );
+    if (tableExists.length === 0) {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS dept_block_rules (
+          rule_id INT AUTO_INCREMENT PRIMARY KEY,
+          dept_id VARCHAR(32) NOT NULL,
+          start_block INT NOT NULL,
+          end_block INT NOT NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+      `);
+    }
+  } catch (e) {
+    console.warn("⚠️ Migration skip (dept_block_rules):", e.message);
   }
 }
 

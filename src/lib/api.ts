@@ -1,11 +1,7 @@
 import type {
   AllocationRunResponse,
   DashboardResponse,
-<<<<<<< HEAD
   DeptBlockRule,
-=======
-  DaywiseAllocation,
->>>>>>> e7a76da5b9db5d346e872ddf8c43fda3a4d537f1
   ExamListItem,
   ExamResultResponse,
   FacultyPreview,
@@ -81,7 +77,6 @@ export function buildReportUrl(examId: number, report: 'excel/junior-supervisors
   return `${API_BASE}/exams/${examId}/reports/${report}`;
 }
 
-<<<<<<< HEAD
 export async function downloadReport(examId: number, report: Parameters<typeof buildReportUrl>[1], filename: string) {
   const url = buildReportUrl(examId, report);
   const response = await fetch(url);
@@ -162,26 +157,4 @@ export async function autoAssignBlocks(examId: number, date: string, shift: stri
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ date, shift }),
   }));
-=======
-export async function getDaywiseAllocations(examId: number, examDate: string, shift: string) {
-  return parseResponse<DaywiseAllocation[]>(
-    await fetch(`${API_BASE}/exams/${examId}/daywise-allocations?examDate=${encodeURIComponent(examDate)}&shift=${encodeURIComponent(shift)}`)
-  );
-}
-
-export async function getExamScheduleDates(examId: number) {
-  return parseResponse<{ exam_date: string; shift: string }[]>(
-    await fetch(`${API_BASE}/exams/${examId}/schedule-dates`)
-  );
-}
-
-export async function updateAllocationBlock(allocationId: number, blockNumber: number | null, squadNumber: number | null) {
-  return parseResponse<{ message: string }>(
-    await fetch(`${API_BASE}/allocations/${allocationId}/block`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ block_number: blockNumber, squad_number: squadNumber }),
-    })
-  );
->>>>>>> e7a76da5b9db5d346e872ddf8c43fda3a4d537f1
 }

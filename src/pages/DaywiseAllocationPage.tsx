@@ -2,11 +2,7 @@ import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Calendar, Save } from 'lucide-react';
 import { toast } from 'sonner';
-<<<<<<< HEAD
 import { getDaywiseAllocations, getExamResult, getExams, updateAllocationBlock } from '@/lib/api';
-=======
-import { getDaywiseAllocations, getExamScheduleDates, getExams, updateAllocationBlock } from '@/lib/api';
->>>>>>> e7a76da5b9db5d346e872ddf8c43fda3a4d537f1
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -17,17 +13,12 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-<<<<<<< HEAD
-=======
-import type { DaywiseAllocation } from '@/types/exam';
->>>>>>> e7a76da5b9db5d346e872ddf8c43fda3a4d537f1
 
 export default function DaywiseAllocationPage() {
   const queryClient = useQueryClient();
   const [selectedExamId, setSelectedExamId] = useState<number | null>(null);
   const [selectedDate, setSelectedDate] = useState<string>('');
   const [selectedShift, setSelectedShift] = useState<string>('');
-<<<<<<< HEAD
   const [localValues, setLocalValues] = useState<Record<number, { block: string; squad: string }>>({});
 
   const examsQuery = useQuery({ queryKey: ['exams'], queryFn: getExams });
@@ -41,19 +32,6 @@ export default function DaywiseAllocationPage() {
   const availableSessions = resultQuery.data?.sessions || [];
   const uniqueDates = Array.from(new Set(availableSessions.map(s => s.exam_date)));
   const uniqueShifts = Array.from(new Set(availableSessions.filter(s => s.exam_date === selectedDate).map(s => s.shift)));
-=======
-
-  const examsQuery = useQuery({ queryKey: ['exams'], queryFn: getExams });
-
-  const scheduleDatesQuery = useQuery({
-    queryKey: ['exam-schedule-dates', selectedExamId],
-    queryFn: () => getExamScheduleDates(selectedExamId!),
-    enabled: !!selectedExamId,
-  });
-
-  const uniqueDates = Array.from(new Set(scheduleDatesQuery.data?.map(s => s.exam_date) || []));
-  const uniqueShifts = Array.from(new Set(scheduleDatesQuery.data?.filter(s => s.exam_date === selectedDate).map(s => s.shift) || []));
->>>>>>> e7a76da5b9db5d346e872ddf8c43fda3a4d537f1
 
   const daywiseQuery = useQuery({
     queryKey: ['daywise-allocations', selectedExamId, selectedDate, selectedShift],
@@ -61,7 +39,6 @@ export default function DaywiseAllocationPage() {
     enabled: !!selectedExamId && !!selectedDate && !!selectedShift,
   });
 
-<<<<<<< HEAD
   const parseAllocationNumber = (value: string) => {
     const trimmedValue = value.trim();
     if (!trimmedValue) {
@@ -71,9 +48,6 @@ export default function DaywiseAllocationPage() {
     const parsedValue = Number.parseInt(trimmedValue, 10);
     return Number.isNaN(parsedValue) ? null : parsedValue;
   };
-=======
-  const [localValues, setLocalValues] = useState<Record<number, { block: string; squad: string }>>({});
->>>>>>> e7a76da5b9db5d346e872ddf8c43fda3a4d537f1
 
   useEffect(() => {
     if (daywiseQuery.data) {
@@ -85,14 +59,10 @@ export default function DaywiseAllocationPage() {
         };
       });
       setLocalValues(initial);
-<<<<<<< HEAD
       return;
     }
 
     setLocalValues({});
-=======
-    }
->>>>>>> e7a76da5b9db5d346e872ddf8c43fda3a4d537f1
   }, [daywiseQuery.data]);
 
   const updateMutation = useMutation({
@@ -103,15 +73,9 @@ export default function DaywiseAllocationPage() {
   });
 
   const handleSave = (allocationId: number) => {
-<<<<<<< HEAD
     const vals = localValues[allocationId] ?? { block: '', squad: '' };
     const block = parseAllocationNumber(vals.block);
     const squad = parseAllocationNumber(vals.squad);
-=======
-    const vals = localValues[allocationId];
-    const block = vals.block ? parseInt(vals.block, 10) : null;
-    const squad = vals.squad ? parseInt(vals.squad, 10) : null;
->>>>>>> e7a76da5b9db5d346e872ddf8c43fda3a4d537f1
 
     updateMutation.mutate(
       { allocationId, block, squad },
@@ -129,18 +93,10 @@ export default function DaywiseAllocationPage() {
     
     let hasError = false;
     const promises = daywiseQuery.data.map(alloc => {
-<<<<<<< HEAD
       const vals = localValues[alloc.allocation_id] ?? { block: '', squad: '' };
       const block = parseAllocationNumber(vals.block);
       const squad = parseAllocationNumber(vals.squad);
       
-      // Only invoke API if we have valid changes but for simplicity we invoke all.
-=======
-      const vals = localValues[alloc.allocation_id] || {};
-      const block = vals.block ? parseInt(vals.block, 10) : null;
-      const squad = vals.squad ? parseInt(vals.squad, 10) : null;
-      
->>>>>>> e7a76da5b9db5d346e872ddf8c43fda3a4d537f1
       return updateAllocationBlock(alloc.allocation_id, block, squad).catch((err) => {
         hasError = true;
         console.error(err);
@@ -213,23 +169,19 @@ export default function DaywiseAllocationPage() {
               disabled={!selectedExamId || uniqueDates.length === 0}
             >
               <option value="" disabled>Select date</option>
-<<<<<<< HEAD
-              {uniqueDates.map(date => <option key={date} value={date}>{date}</option>)}
-=======
-             {uniqueDates.map(date => {
-  const formattedDate = new Date(date).toLocaleDateString('en-GB', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric'
-  });
+              {uniqueDates.map(date => {
+                const formattedDate = new Date(date).toLocaleDateString('en-GB', {
+                  day: '2-digit',
+                  month: 'short',
+                  year: 'numeric'
+                });
 
-  return (
-    <option key={date} value={date}>
-      {formattedDate}
-    </option>
-  );
-})}
->>>>>>> e7a76da5b9db5d346e872ddf8c43fda3a4d537f1
+                return (
+                  <option key={date} value={date}>
+                    {formattedDate}
+                  </option>
+                );
+              })}
             </select>
           </div>
 
@@ -242,7 +194,11 @@ export default function DaywiseAllocationPage() {
               disabled={!selectedDate || uniqueShifts.length === 0}
             >
               <option value="" disabled>Select shift</option>
-              {uniqueShifts.map(shift => <option key={shift} value={shift}>{shift}</option>)}
+              {uniqueShifts.map(shift => (
+                <option key={shift} value={shift}>
+                  {shift === 'M' ? 'Morning' : shift === 'E' ? 'Evening' : shift}
+                </option>
+              ))}
             </select>
           </div>
         </div>
